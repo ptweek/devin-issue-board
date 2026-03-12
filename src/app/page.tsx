@@ -7,9 +7,10 @@ import { IssueTable } from "@/components/issue-table";
 import { IssueDetail } from "@/components/issue-detail";
 import { AgentFeed } from "@/components/agent-feed";
 import { Analytics } from "@/components/analytics";
+import { WorkflowDiagram } from "@/components/workflow-diagram";
 import { Search } from "lucide-react";
 
-type View = "triage" | "agent" | "analytics";
+type View = "triage" | "agent" | "workflow" | "analytics";
 
 export default function Home() {
   const [view, setView] = useState<View>("triage");
@@ -48,7 +49,7 @@ export default function Home() {
         </div>
 
         <nav className="flex items-center gap-0.5 ml-2">
-          {(["triage", "agent", "analytics"] as const).map((tab) => (
+          {(["triage", "agent", "workflow", "analytics"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setView(tab)}
@@ -103,6 +104,11 @@ export default function Home() {
         {view === "agent" && (
           <div className="flex-1 overflow-y-auto">
             <AgentFeed />
+          </div>
+        )}
+        {view === "workflow" && (
+          <div className="flex-1 overflow-y-auto">
+            <WorkflowDiagram />
           </div>
         )}
         {view === "analytics" && (
