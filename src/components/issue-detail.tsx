@@ -129,11 +129,19 @@ function DatadogFindingsCard({ findings, open, onToggle }: { findings: DatadogFi
           {/* Search queries */}
           {findings.searches && findings.searches.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {findings.searches.map((q, i) => (
-                <span key={i} className="text-[10px] font-mono text-purple-400/60 bg-purple-500/10 px-2 py-0.5 rounded">
-                  {q}
-                </span>
-              ))}
+              {findings.searches.map((q, i) => {
+                const query = typeof q === "string" ? q : q.query;
+                const url = typeof q === "string" ? null : q.url;
+                return url ? (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-purple-400/60 bg-purple-500/10 px-2 py-0.5 rounded hover:text-purple-400 hover:bg-purple-500/20 transition-colors flex items-center gap-1">
+                    {query} <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                ) : (
+                  <span key={i} className="text-[10px] font-mono text-purple-400/60 bg-purple-500/10 px-2 py-0.5 rounded">
+                    {query}
+                  </span>
+                );
+              })}
             </div>
           )}
 
@@ -148,6 +156,11 @@ function DatadogFindingsCard({ findings, open, onToggle }: { findings: DatadogFi
                     <span className={`text-xs font-medium ${sev.text}`}>{f.title}</span>
                     <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
                     <span className="text-[9px] text-muted-foreground/40 uppercase">{f.type}</span>
+                    {f.url && (
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className={`ml-auto flex items-center gap-1 text-[10px] ${sev.text} opacity-70 hover:opacity-100 transition-opacity`}>
+                        <ExternalLink className="w-3 h-3" /> View in Datadog
+                      </a>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground/70 leading-relaxed pl-5.5">{f.detail}</p>
                 </div>

@@ -44,8 +44,8 @@ Use the Datadog MCP whenever the issue involves or could involve runtime behavio
 
 **What to capture in your structured output (`datadogFindings`):**
 - `investigationRationale`: Why you looked at Datadog
-- `searches`: What queries/filters you ran
-- `findings`: Individual findings with type (error/latency/trace/monitor/log), title, detail, and severity
+- `searches`: What queries/filters you ran — for each search, include both the `query` string and the `url` (direct Datadog link) so reviewers can click through to the exact query results
+- `findings`: Individual findings with type (error/latency/trace/monitor/log), title, detail, severity, and `url` (direct Datadog link to the relevant log entry, trace, monitor, or dashboard). **Always include the `url` field** — this lets reviewers jump straight into Datadog from the scoping report.
 - `productionStatus`: Whether the issue is ongoing, resolved, intermittent, or unknown
 - `impactOnScoping`: How these findings change your understanding of the issue
 

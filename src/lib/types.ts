@@ -49,11 +49,17 @@ export interface DatadogFinding {
   title: string;
   detail: string;
   severity?: "critical" | "warning" | "info";
+  url?: string;
+}
+
+export interface DatadogSearch {
+  query: string;
+  url?: string;
 }
 
 export interface DatadogFindings {
   investigationRationale: string;
-  searches?: string[];
+  searches?: (string | DatadogSearch)[];
   findings: DatadogFinding[];
   productionStatus: "ongoing" | "resolved" | "intermittent" | "unknown";
   impactOnScoping: string;

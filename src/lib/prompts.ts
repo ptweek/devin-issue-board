@@ -201,8 +201,20 @@ export function getScopingOutputSchema(): Record<string, unknown> {
           },
           searches: {
             type: "array",
-            items: { type: "string" },
-            description: "Queries/filters/time windows you searched",
+            items: {
+              oneOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  properties: {
+                    query: { type: "string", description: "The Datadog query/filter used" },
+                    url: { type: "string", description: "Direct Datadog URL for this search query" },
+                  },
+                  required: ["query"],
+                },
+              ],
+            },
+            description: "Queries/filters/time windows you searched — include the Datadog URL for each so reviewers can click through",
           },
           findings: {
             type: "array",
@@ -220,6 +232,10 @@ export function getScopingOutputSchema(): Record<string, unknown> {
                   type: "string",
                   enum: ["critical", "warning", "info"],
                   description: "How severe this finding is",
+                },
+                url: {
+                  type: "string",
+                  description: "Direct Datadog URL to the relevant log, trace, monitor, or dashboard for this finding",
                 },
               },
               required: ["type", "title", "detail"],
