@@ -14,6 +14,7 @@ export function serializeIssue(issue: PrismaIssue & { scopingReport?: PrismaScop
     repo: issue.repo,
     labels: JSON.parse(issue.labels),
     assignee: issue.assignee,
+    devinSessionId: issue.devinSessionId,
     createdAt: issue.createdAt.toISOString(),
     updatedAt: issue.updatedAt.toISOString(),
     staleDays: differenceInDays(now, issue.updatedAt),

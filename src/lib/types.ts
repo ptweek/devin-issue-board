@@ -34,6 +34,7 @@ export interface Issue {
   repo: string;
   labels: string[];
   assignee: string | null;
+  devinSessionId?: string | null;
   createdAt: string;
   updatedAt: string;
   staleDays: number;

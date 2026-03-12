@@ -25,7 +25,7 @@ import {
   RepoBadge,
   LabelBadge,
 } from "@/components/status-badge";
-import { updateIssue, postActivity } from "@/hooks/use-issues";
+import { updateIssue, dispatchToDevin, dispatchToDevinFix } from "@/hooks/use-issues";
 import {
   Bot,
   User,
@@ -37,8 +37,12 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Pencil,
+  CheckCircle,
+  Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { PipelineVisualization } from "@/components/pipeline-visualization";
 
 interface IssueDetailProps {
   issueId: string | null;
@@ -52,6 +56,8 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
   const [activeTab, setActiveTab] = useState<"description" | "scoping" | "activity">("description");
   const [datadogOpen, setDatadogOpen] = useState(false);
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
+  const [editingApproach, setEditingApproach] = useState(false);
+  const [approachText, setApproachText] = useState("");
 
   const fetchIssue = useCallback(async () => {
     if (!issueId) return;
@@ -82,22 +88,21 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
     onRefresh();
   };
 
+  const [agentLoading, setAgentLoading] = useState(false);
+
   const handleSendToAgent = async (action: "scope" | "fix") => {
     if (!issue) return;
-    if (action === "scope") {
-      await updateIssue(issue.id, { status: "scoping", assignee: "devin", actor: "system" });
-      await postActivity(issue.id, {
-        eventType: "agent_scoping_started",
-        actor: "devin",
-        message: "Agent started scoping this issue",
-      });
-    } else {
-      await updateIssue(issue.id, { status: "in_progress", assignee: "devin", actor: "system" });
-      await postActivity(issue.id, {
-        eventType: "agent_fix_started",
-        actor: "devin",
-        message: "Agent started working on a fix",
-      });
+    setAgentLoading(true);
+    try {
+      if (action === "scope") {
+        await dispatchToDevin([issue.id]);
+      } else {
+        await dispatchToDevinFix(issue.id);
+      }
+    } catch (err) {
+      console.error("Failed to dispatch to Devin:", err);
+    } finally {
+      setAgentLoading(false);
     }
     fetchIssue();
     onRefresh();
@@ -177,12 +182,15 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
               </div>
             </SheetHeader>
 
+            {/* Pipeline Visualization */}
+            <PipelineVisualization issue={issue} />
+
             {/* Actions */}
-            <div className="px-8 py-3 border-t border-b border-border/50 flex items-center gap-2 flex-wrap">
-              <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")}>
-                <Bot className="w-3 h-3" /> Scope with Agent
+            <div className="px-8 py-3 border-b border-border/50 flex items-center gap-2 flex-wrap">
+              <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
+                <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Scope with Agent"}
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")}>
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
                 <Bot className="w-3 h-3" /> Assign Agent for Fix
               </Button>
               <Button
@@ -326,14 +334,123 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                         )}
                       </div>
                     )}
+
+                    {/* Approval / Review Actions */}
+                    <div className="h-px bg-border/50" />
+
+                    {issue.status === "in_progress" && issue.assignee === "devin" && (
+                      <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-md p-4 flex items-center gap-3">
+                        <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-emerald-400/80">Auto-dispatched to Devin</p>
+                          <p className="text-xs text-muted-foreground/50 mt-0.5">
+                            High confidence — Devin is implementing this fix
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {issue.status === "ready" && issue.scopingReport.confidence !== "high" && (
+                      <div className="border border-border/50 bg-muted/10 rounded-md p-5 space-y-4">
+                        <div>
+                          <h4 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest mb-1">
+                            Review Required
+                          </h4>
+                          <p className="text-xs text-muted-foreground/60">
+                            This {issue.scopingReport.confidence} confidence plan needs engineer review before implementation.
+                          </p>
+                        </div>
+
+                        {editingApproach ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={approachText}
+                              onChange={(e) => setApproachText(e.target.value)}
+                              rows={8}
+                              className="w-full text-sm font-mono bg-muted/20 border border-border/50 rounded-md p-3 text-foreground/80 resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0"
+                                disabled={agentLoading}
+                                onClick={async () => {
+                                  setAgentLoading(true);
+                                  try {
+                                    // Update the scoping report with new approach
+                                    await fetch(`/api/issues/${issue.id}/scoping-report`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ suggestedApproach: approachText }),
+                                    });
+                                    // Dispatch with updated approach
+                                    await dispatchToDevinFix(issue.id, approachText);
+                                  } catch (err) {
+                                    console.error("Failed to dispatch:", err);
+                                  } finally {
+                                    setAgentLoading(false);
+                                    setEditingApproach(false);
+                                  }
+                                  fetchIssue();
+                                  onRefresh();
+                                }}
+                              >
+                                <CheckCircle className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Save & Dispatch"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => setEditingApproach(false)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0"
+                              disabled={agentLoading}
+                              onClick={async () => {
+                                setAgentLoading(true);
+                                try {
+                                  await dispatchToDevinFix(issue.id);
+                                } catch (err) {
+                                  console.error("Failed to dispatch:", err);
+                                } finally {
+                                  setAgentLoading(false);
+                                }
+                                fetchIssue();
+                                onRefresh();
+                              }}
+                            >
+                              <CheckCircle className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Approve & Dispatch"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => {
+                                setApproachText(issue.scopingReport?.suggestedApproach || "");
+                                setEditingApproach(true);
+                              }}
+                            >
+                              <Pencil className="w-3 h-3" /> Edit Plan
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                     <Bot className="w-10 h-10 mb-3 text-muted-foreground/20" />
                     <p className="text-sm mb-1">No scoping report yet</p>
                     <p className="text-xs text-muted-foreground/40 mb-5">Send this issue to the agent for scoping</p>
-                    <Button size="sm" className="text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")}>
-                      <Bot className="w-3 h-3" /> Send to Agent
+                    <Button size="sm" className="text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
+                      <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Send to Agent"}
                     </Button>
                   </div>
                 )

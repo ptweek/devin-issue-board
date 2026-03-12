@@ -95,3 +95,45 @@ export async function postActivity(
   });
   return res.json();
 }
+
+export interface DispatchResult {
+  dispatched: Array<{ issueId: string; sessionId: string; sessionUrl: string; workflowType: string }>;
+  failed: Array<{ issueId: string; error: string }>;
+}
+
+export async function dispatchToDevin(issueIds: string[]): Promise<DispatchResult> {
+  const res = await fetch("/api/devin/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ issueIds }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(body.error || "Failed to dispatch to Devin");
+  }
+  return res.json();
+}
+
+export async function dispatchToDevinFix(
+  issueId: string,
+  approach?: string
+): Promise<{ issueId: string; sessionId: string; sessionUrl: string }> {
+  const res = await fetch("/api/devin/implement", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ issueId, approach }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(body.error || "Failed to dispatch implementation to Devin");
+  }
+  return res.json();
+}
+
+export async function pollDevinSessions(): Promise<{
+  updated: Array<{ issueId: string; newStatus: string; detail?: string }>;
+  stillActive: number;
+}> {
+  const res = await fetch("/api/devin/poll", { method: "POST" });
+  return res.json();
+}

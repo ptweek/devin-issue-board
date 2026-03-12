@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import type { Issue } from "@/lib/types";
 import { StatusBadge, RepoBadge, ConfidenceBadge } from "@/components/status-badge";
-import { Bot, Clock, Check, Search, Wrench, Hourglass } from "lucide-react";
+import { PipelineVisualization } from "@/components/pipeline-visualization";
+import { Bot, Clock, Check, Search, Wrench, Hourglass, Bug, Lightbulb, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 
 export function AgentFeed() {
@@ -12,6 +14,13 @@ export function AgentFeed() {
 
   useEffect(() => {
     const fetchAgentWork = async () => {
+      // Trigger poll to sync Devin session statuses
+      try {
+        await fetch("/api/devin/poll", { method: "POST" });
+      } catch {
+        // Poll failure is non-critical
+      }
+
       const [activeRes, completedRes] = await Promise.all([
         fetch("/api/issues?assignee=devin&status=scoping,in_progress,in_review"),
         fetch("/api/issues?assignee=devin&status=resolved"),
@@ -45,6 +54,35 @@ export function AgentFeed() {
     if (!issue.activityEvents) return null;
     const agentEvents = issue.activityEvents.filter((e) => e.actor === "devin");
     return agentEvents.length > 0 ? agentEvents[agentEvents.length - 1] : null;
+  };
+
+  const getWorkflowInfo = (issue: Issue) => {
+    if (!issue.activityEvents) return null;
+    const scopingEvent = issue.activityEvents.find((e) => e.eventType === "agent_scoping_started");
+    if (!scopingEvent) return null;
+    const metadata = scopingEvent.metadata as Record<string, unknown>;
+    return {
+      workflowType: metadata.workflowType as string | undefined,
+      devinUrl: metadata.devinUrl as string | undefined,
+    };
+  };
+
+  const getDevinUrl = (issue: Issue) => {
+    if (!issue.activityEvents) return null;
+    for (let i = issue.activityEvents.length - 1; i >= 0; i--) {
+      const metadata = issue.activityEvents[i].metadata as Record<string, unknown>;
+      if (metadata.devinUrl) return metadata.devinUrl as string;
+    }
+    return null;
+  };
+
+  const getPullRequestUrls = (issue: Issue): string[] => {
+    if (!issue.activityEvents) return [];
+    const fixCompleteEvent = issue.activityEvents.find((e) => e.eventType === "agent_fix_complete");
+    if (!fixCompleteEvent) return [];
+    const metadata = fixCompleteEvent.metadata as Record<string, unknown>;
+    const prs = metadata.pullRequests as Array<{ pr_url: string }> | undefined;
+    return prs ? prs.map((pr) => pr.pr_url) : [];
   };
 
   if (loading) {
@@ -84,6 +122,8 @@ export function AgentFeed() {
             const phase = getPhase(issue);
             const latestEvent = getLatestAgentEvent(issue);
             const PhaseIcon = phase.icon;
+            const workflowInfo = getWorkflowInfo(issue);
+            const devinUrl = getDevinUrl(issue);
             return (
               <div key={issue.id} className={`rounded-lg border ${phase.borderColor} bg-muted/10 p-5`}>
                 <div className="flex items-start justify-between gap-3">
@@ -93,6 +133,15 @@ export function AgentFeed() {
                       <span className={`text-[10px] font-medium uppercase tracking-widest ${phase.color}`}>
                         {phase.label}
                       </span>
+                      {workflowInfo?.workflowType && (
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 bg-transparent border-border/50">
+                          {workflowInfo.workflowType === "bug_triage" ? (
+                            <><Bug className="w-2.5 h-2.5" /> Bug Triage</>
+                          ) : (
+                            <><Lightbulb className="w-2.5 h-2.5" /> Feature Dev</>
+                          )}
+                        </Badge>
+                      )}
                       <RepoBadge repo={issue.repo} />
                     </div>
                     <h4 className="text-sm font-medium mb-2 truncate text-foreground/80">{issue.title}</h4>
@@ -106,22 +155,21 @@ export function AgentFeed() {
                       <Clock className="w-2.5 h-2.5" />
                       {formatDistanceToNow(new Date(issue.updatedAt))}
                     </span>
+                    {devinUrl && (
+                      <a
+                        href={devinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-emerald-400/50 hover:text-emerald-400/80 flex items-center gap-1 transition-colors"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" /> Devin Session
+                      </a>
+                    )}
                   </div>
                 </div>
-                {/* Progress indicator */}
-                <div className="mt-4 flex items-center gap-1">
-                  {["scoping", "in_progress", "in_review", "resolved"].map((step, idx) => {
-                    const steps = ["scoping", "in_progress", "in_review", "resolved"];
-                    const currentIdx = steps.indexOf(issue.status);
-                    return (
-                      <div
-                        key={step}
-                        className={`h-0.5 flex-1 rounded-full ${
-                          idx <= currentIdx ? "bg-emerald-500/50" : "bg-muted/30"
-                        }`}
-                      />
-                    );
-                  })}
+                {/* Pipeline visualization */}
+                <div className="mt-3 -mx-5 -mb-5">
+                  <PipelineVisualization issue={issue} compact />
                 </div>
               </div>
             );
@@ -141,6 +189,7 @@ export function AgentFeed() {
           <h3 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest">Recently Completed</h3>
           {completedIssues.map((issue) => {
             const latestEvent = getLatestAgentEvent(issue);
+            const prUrls = getPullRequestUrls(issue);
             return (
               <div key={issue.id} className="rounded-lg border border-emerald-500/10 bg-muted/10 p-4">
                 <div className="flex items-center gap-2">
@@ -151,6 +200,21 @@ export function AgentFeed() {
                 </div>
                 {latestEvent && (
                   <p className="text-xs text-muted-foreground/40 mt-2 ml-5.5">{latestEvent.message}</p>
+                )}
+                {prUrls.length > 0 && (
+                  <div className="mt-2 ml-5.5 flex items-center gap-2">
+                    {prUrls.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-emerald-400/50 hover:text-emerald-400/80 flex items-center gap-1 transition-colors"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" /> PR
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
             );

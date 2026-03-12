@@ -17,8 +17,9 @@ model Issue {
   sourceUrl   String?  @map("source_url")
   repo        String
   labels      String   @default("[]") // JSON array stored as string
-  assignee    String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  assignee        String?
+  devinSessionId  String?  @map("devin_session_id")
+  createdAt       DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   scopingReport  ScopingReport?

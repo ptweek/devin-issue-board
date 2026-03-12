@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Issue } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { StatusBadge, PriorityDot, ComplexityBadge, RepoBadge } from "@/components/status-badge";
+import { StatusBadge, PriorityDot, ComplexityBadge, TypeBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { updateIssue, postActivity } from "@/hooks/use-issues";
+import { updateIssue, dispatchToDevin } from "@/hooks/use-issues";
 import {
   Check,
   Bot,
@@ -47,16 +47,23 @@ export function IssueTable({ issues, loading, onSelectIssue, onRefresh }: IssueT
     }
   };
 
+  const [dispatching, setDispatching] = useState(false);
+
   const bulkAction = async (action: "scope" | "wont_fix" | "priority") => {
-    for (const id of selected) {
-      if (action === "scope") {
-        await updateIssue(id, { status: "scoping", assignee: "devin", actor: "system" });
-        await postActivity(id, {
-          eventType: "agent_scoping_started",
-          actor: "devin",
-          message: "Agent started scoping this issue",
-        });
-      } else if (action === "wont_fix") {
+    if (action === "scope") {
+      setDispatching(true);
+      try {
+        const result = await dispatchToDevin(Array.from(selected));
+        if (result.failed.length > 0) {
+          console.error("Some issues failed to dispatch:", result.failed);
+        }
+      } catch (err) {
+        console.error("Failed to dispatch to Devin:", err);
+      } finally {
+        setDispatching(false);
+      }
+    } else if (action === "wont_fix") {
+      for (const id of selected) {
         await updateIssue(id, { status: "wont_fix", actor: "system" });
       }
     }
@@ -82,8 +89,8 @@ export function IssueTable({ issues, loading, onSelectIssue, onRefresh }: IssueT
       {selected.size > 0 && (
         <div className="bg-muted/30 border-b border-border px-5 py-2.5 flex items-center gap-3">
           <span className="text-xs text-muted-foreground font-mono">{selected.size} selected</span>
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => bulkAction("scope")}>
-            <Bot className="w-3 h-3" /> Send to Agent
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => bulkAction("scope")} disabled={dispatching}>
+            <Bot className="w-3 h-3" /> {dispatching ? "Dispatching..." : "Send to Agent"}
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-muted-foreground" onClick={() => bulkAction("wont_fix")}>
             <XCircle className="w-3 h-3" /> Won&apos;t Fix
@@ -102,7 +109,7 @@ export function IssueTable({ issues, loading, onSelectIssue, onRefresh }: IssueT
         </div>
         <div className="w-5">P</div>
         <div className="flex-1 min-w-0">Issue</div>
-        <div className="w-32">Repo</div>
+        <div className="w-20">Type</div>
         <div className="w-20">Complexity</div>
         <div className="w-16 text-right">Stale</div>
         <div className="w-20">Assignee</div>
@@ -141,8 +148,14 @@ export function IssueTable({ issues, loading, onSelectIssue, onRefresh }: IssueT
                   <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500/60" />
                 )}
               </div>
-              <div className="w-32">
-                <RepoBadge repo={issue.repo} />
+              <div className="w-20">
+                {issue.labels.includes("bug") ? (
+                  <TypeBadge type="bug" />
+                ) : issue.labels.includes("feature") ? (
+                  <TypeBadge type="feature" />
+                ) : (
+                  <span className="text-[12px] text-muted-foreground/30">&mdash;</span>
+                )}
               </div>
               <div className="w-20">
                 <ComplexityBadge complexity={issue.complexity} />
@@ -179,12 +192,7 @@ export function IssueTable({ issues, loading, onSelectIssue, onRefresh }: IssueT
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onClick={async () => {
-                        await updateIssue(issue.id, { status: "scoping", assignee: "devin", actor: "system" });
-                        await postActivity(issue.id, {
-                          eventType: "agent_scoping_started",
-                          actor: "devin",
-                          message: "Agent started scoping this issue",
-                        });
+                        await dispatchToDevin([issue.id]);
                         onRefresh();
                       }}
                     >

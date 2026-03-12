@@ -70,6 +70,16 @@ export function RepoBadge({ repo }: { repo: string }) {
   );
 }
 
+const typeConfig: Record<string, { label: string; className: string }> = {
+  bug: { label: "Bug", className: "bg-transparent text-foreground/80 border-border" },
+  feature: { label: "Feature", className: "bg-transparent text-muted-foreground/70 border-border" },
+};
+
+export function TypeBadge({ type }: { type: string }) {
+  const config = typeConfig[type] || { label: type, className: "bg-transparent text-muted-foreground/50 border-border" };
+  return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+}
+
 export function LabelBadge({ label }: { label: string }) {
   return (
     <Badge variant="outline" className="bg-transparent text-muted-foreground/60 border-border text-[13px]">

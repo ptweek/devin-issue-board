@@ -44,6 +44,7 @@ export async function PATCH(
   if (body.repo !== undefined) updateData.repo = body.repo;
   if (body.labels !== undefined) updateData.labels = JSON.stringify(body.labels);
   if (body.assignee !== undefined) updateData.assignee = body.assignee;
+  if (body.devinSessionId !== undefined) updateData.devinSessionId = body.devinSessionId;
 
   // Handle status changes with activity events
   if (body.status !== undefined && body.status !== existing.status) {
