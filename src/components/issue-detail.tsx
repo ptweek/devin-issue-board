@@ -589,9 +589,9 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
             </div>
 
             {/* Tab content */}
-            <div className="p-8">
+            <div className="p-8 overflow-hidden">
               {activeTab === "description" && (
-                <div className="max-w-none text-sm text-muted-foreground leading-relaxed">
+                <div className="max-w-none text-sm text-muted-foreground leading-relaxed overflow-hidden wrap-break-word">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -657,7 +657,7 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                         {issue.scopingReport.affectedFiles.map((file: string) => (
                           <div key={file} className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted/15 rounded px-3 py-2 border border-border/30">
                             <FileCode className="w-3 h-3 shrink-0 text-muted-foreground/40" />
-                            {file}
+                            <span className="truncate">{file}</span>
                           </div>
                         ))}
                       </div>
@@ -869,7 +869,7 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                     {prSummary.body && (
                       <div>
                         <h4 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest mb-2">Description</h4>
-                        <pre className="text-sm text-muted-foreground bg-muted/20 rounded-md p-4 font-mono whitespace-pre-wrap leading-relaxed border border-border/50 max-h-64 overflow-y-auto">
+                        <pre className="text-sm text-muted-foreground bg-muted/20 rounded-md p-4 font-mono whitespace-pre-wrap wrap-break-word leading-relaxed border border-border/50 max-h-64 overflow-y-auto">
                           {prSummary.body}
                         </pre>
                       </div>

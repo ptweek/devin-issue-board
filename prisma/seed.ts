@@ -6,7 +6,6 @@ const dbPath = path.join(__dirname, "..", "dev.db");
 const adapter = new PrismaBetterSqlite3({ url: dbPath });
 const prisma = new PrismaClient({ adapter });
 
-
 interface IssueTemplate {
   title: string;
   description: string;
@@ -200,7 +199,8 @@ Medium — inaccurate ratings mislead customers and may reduce conversion rates 
   },
   // 008 - Order status race condition
   {
-    title: "Order status jumps from 'processing' to 'delivered' skipping 'shipped'",
+    title:
+      "Order status jumps from 'processing' to 'delivered' skipping 'shipped'",
     description: `We've had a few cases where an order's status jumped directly from "processing" to "delivered" without ever going through "shipped." This happened when multiple warehouse staff were working on the same batch of orders.
 
 Lisa was looking at order #SF-8847 and was about to mark it as "shipped." At the same time, I had the same order open on my screen from a few minutes earlier. Lisa updated it to "shipped." Then I updated it to "delivered" from my stale view. The order went straight from "processing" to "delivered" in the system because my update overwrote Lisa's.
@@ -586,7 +586,8 @@ Revenue calculation also includes refunded orders, inflating the total.
   },
   // SHO-33 - Coupon minimum order bypass
   {
-    title: "Coupons with minimum order threshold can be applied to small orders",
+    title:
+      "Coupons with minimum order threshold can be applied to small orders",
     description: `Coupons that have a minimum_order requirement (e.g., FLAT20 requires $100 minimum) are being successfully applied to carts well below the minimum threshold. The validation check appears to be comparing against the wrong value.
 
 ## How it was noticed
@@ -646,6 +647,74 @@ Active guest shoppers lose their carts every time the cron job runs. This direct
     repo: "packages/worker",
     sourceUrl: "https://github.com/acme/shopflow/issues/134",
   },
+  // SHO-35 - Customers overcharged on sale items
+  {
+    title:
+      "Customers Overcharged on Sale Items — Orders Use Original Price Instead of Sale Price",
+    description: `Customers who purchase products that are on sale are being charged the original (pre-sale) price instead of the advertised sale price. The product pages and cart correctly display the sale price, but when the order is placed, the backend uses the \`compare_at_price\` (original price) instead of \`price\` (sale price) for the subtotal calculation and order line items.
+
+## How it was noticed
+
+- Customer support tickets: "I was charged $299.99 for headphones that were listed at $249.99 on sale"
+- Datadog logs for order creation show \`unitPrice\` values that don't match the product's current \`price\` field — they match \`compare_at_price\` instead
+- The log entries include both \`unitPrice\` and \`salePrice\` fields, and they differ for sale items (with \`hasSalePrice: true\`)
+- Database query shows \`unit_price\` on order items is higher than the product's current \`price\` for products with a \`compare_at_price\`
+
+## Datadog investigation
+
+The order creation route (\`src/app/api/orders/route.ts\`) emits several structured logs that make this bug easy to confirm in Datadog:
+
+Datadog query tips for ShopFlow: Logs are indexed under service:shopflow. 
+
+Structured fields from the logger (like msg, orderId, chargedUnitPrice) are in the message body, not as indexed facets. Use free-text search on the message content rather than @field:value attribute syntax.
+
+The Datadog environment is development with host MacBook-Pro-2.local.
+
+## Steps to reproduce
+
+1. Log in as \`bob@example.com\` / \`password123\` (has a saved shipping address, so checkout address fields are pre-filled)
+2. Browse to a product that is on sale (look for items showing a strikethrough original price). Examples:
+   - **Premium Wireless Headphones**: sale price $249.99, original $299.99
+   - **Kids Wireless Headphones**: sale price $34.99, original $44.99
+   - **Everyday Sneakers**: sale price $69.99, original $89.99
+   - **Cooking Fundamentals** (book): sale price $29.99, original $39.99
+3. Add a sale item to your cart — the cart correctly shows the sale price
+4. Proceed to checkout — the address is pre-filled and the order summary shows the sale price
+5. Place the order
+6. Check the created order in the database:
+   \`\`\`sql
+   SELECT oi.id, p.name, p.price AS current_sale_price, p.compare_at_price AS original_price, oi.unit_price AS charged_price, oi.quantity, oi.total_price
+   FROM "OrderItem" oi
+   JOIN "Product" p ON p.id = oi.product_id
+   WHERE oi.order_id = (SELECT id FROM "Order" ORDER BY created_at DESC LIMIT 1);
+   \`\`\`
+7. Notice that \`charged_price\` matches \`original_price\` (not \`current_sale_price\`) for sale items
+
+## Expected behavior
+
+Orders should use the product's \`price\` field (the current/sale price) for:
+
+- Subtotal calculation
+- \`unit_price\` on each order line item
+- \`total_price\` on each order line item
+
+The \`compare_at_price\` field is only for display purposes (showing the "was" price).
+
+## Actual behavior
+
+The order creation uses \`compare_at_price\` when it exists, falling back to \`price\` only for non-sale items. This means every sale item is charged at the higher original price.
+
+## Impact
+
+- **Customer overcharges**: Every order containing a sale item is overcharged by the difference between original and sale price
+- **Example**: Premium Wireless Headphones — customer sees $249.99, gets charged $299.99 (overcharged by $50.00)
+- **Trust/legal risk**: Advertising one price and charging another
+- **Affects all sale items**: Any product with a \`compare_at_price\` set is affected`,
+    priority: "critical",
+    labels: ["bug", "orders", "pricing", "data-integrity", "revenue"],
+    repo: "packages/api",
+    sourceUrl: "https://github.com/acme/shopflow/issues/135",
+  },
 ];
 
 function randomDate(daysAgo: number): Date {
@@ -654,7 +723,6 @@ function randomDate(daysAgo: number): Date {
   date.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
   return date;
 }
-
 
 async function main() {
   // Clear existing data
@@ -700,7 +768,6 @@ async function main() {
         createdAt,
       },
     });
-
   }
 
   const count = await prisma.issue.count();

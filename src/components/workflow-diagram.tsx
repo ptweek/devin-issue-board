@@ -11,8 +11,6 @@ import {
   GitPullRequest,
   CheckCircle2,
   Bot,
-  Database,
-  Activity,
   Bug,
   Lightbulb,
   ArrowDown,
@@ -80,8 +78,8 @@ const workflowNodes = {
     label: "Confidence Gate",
     description: "Routes based on agent's confidence in the implementation plan",
     icon: <GitBranch className="w-5 h-5" />,
-    color: "amber" as const,
-    actor: "System",
+    color: "emerald" as const,
+    actor: "Devin",
   },
   highPath: {
     id: "high_confidence",
@@ -107,12 +105,12 @@ const workflowNodes = {
     ],
     icon: <UserCheck className="w-5 h-5" />,
     color: "amber" as const,
-    actor: "Jr. Engineer",
+    actor: "Engineer",
   },
   editPlan: {
     id: "edit_plan",
     label: "Edit Implementation Plan",
-    description: "Jr. Engineer modifies the approach before dispatching",
+    description: "Engineer modifies the approach before dispatching",
     details: [
       "Update suggested approach",
       "Add context or constraints",
@@ -120,7 +118,7 @@ const workflowNodes = {
     ],
     icon: <Pencil className="w-5 h-5" />,
     color: "amber" as const,
-    actor: "Jr. Engineer",
+    actor: "Engineer",
   },
   implementation: {
     id: "implementation",
@@ -139,7 +137,7 @@ const workflowNodes = {
   prReview: {
     id: "pr_review",
     label: "PR Review",
-    description: "Sr. Engineers review the generated pull request",
+    description: "Engineers review the generated pull request",
     details: [
       "Jr. Engineers review PR first (for medium/low confidence)",
       "Then sent to Sr. Engineers for final review",
@@ -147,7 +145,7 @@ const workflowNodes = {
     ],
     icon: <GitPullRequest className="w-5 h-5" />,
     color: "amber" as const,
-    actor: "Sr. Engineer",
+    actor: "Engineer",
   },
   resolved: {
     id: "resolved",
@@ -221,20 +219,9 @@ function NodeCard({ node }: { node: WorkflowNode }) {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground/60 leading-relaxed">{node.description}</p>
+          <p className="text-xs text-muted-foreground/60">{node.description}</p>
         </div>
       </div>
-
-      {node.details && (
-        <div className="mt-4 ml-[52px] space-y-1.5">
-          {node.details.map((detail, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/50">
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
-              {detail}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -304,48 +291,7 @@ function ScopingDetail() {
               Devin
             </span>
           </div>
-          <p className="text-xs text-muted-foreground/60 leading-relaxed">Concurrent Devin sessions analyze the issue</p>
-        </div>
-      </div>
-
-      <div className="mt-5 ml-[52px] space-y-5">
-        {/* MCP integrations */}
-        <div>
-          <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Leveraging MCP Integrations</h4>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-              <Database className="w-3 h-3 text-emerald-400/50 shrink-0" /> Database access for data layer
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-              <Activity className="w-3 h-3 text-amber-400/50 shrink-0" /> DataDog logs for errors
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-              <Code className="w-3 h-3 text-blue-400/50 shrink-0" /> Codebase in sandbox env
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-              <GitBranch className="w-3 h-3 text-muted-foreground/40 shrink-0" /> Architecture understanding
-            </div>
-          </div>
-        </div>
-
-        {/* Output */}
-        <div>
-          <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Scoping Output</h4>
-          <div className="space-y-1.5">
-            {[
-              "Issue or feature summary",
-              "Implementation plan with affected files",
-              "Root cause hypothesis (bugs)",
-              "Confidence level: High / Medium / Low",
-              "Priority recommendation",
-              "Open questions for engineers",
-            ].map((item, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/50">
-                <span className="w-1 h-1 rounded-full bg-emerald-500/40 mt-1.5 shrink-0" />
-                {item}
-              </div>
-            ))}
-          </div>
+          <p className="text-xs text-muted-foreground/60">Concurrent Devin sessions analyze the issue</p>
         </div>
       </div>
     </div>

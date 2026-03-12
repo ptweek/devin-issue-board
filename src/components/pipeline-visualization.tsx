@@ -91,7 +91,7 @@ function derivePipelineStages(issue: Issue): PipelineStage[] {
 
   // 6. PR Review
   stages.push(
-    stage("pr_review", "PR Review", "Sr. Engineer", <GitPullRequest className="w-4 h-4" />,
+    stage("pr_review", "PR Review", "Engineer", <GitPullRequest className="w-4 h-4" />,
       status === "in_review" ? "active"
         : status === "resolved" ? "completed"
         : "upcoming"
