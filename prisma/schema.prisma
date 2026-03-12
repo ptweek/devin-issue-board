@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Issue {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  status      String   @default("untriaged") // untriaged | scoping | ready | in_progress | in_review | resolved | wont_fix
+  priority    String   @default("unprioritized") // critical | high | medium | low | unprioritized
+  complexity  String   @default("unknown") // trivial | small | medium | large | unknown
+  sourceUrl   String?  @map("source_url")
+  repo        String
+  labels      String   @default("[]") // JSON array stored as string
+  assignee    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  scopingReport  ScopingReport?
+  activityEvents ActivityEvent[]
+
+  @@map("issues")
+}
+
+model ScopingReport {
+  id                  String   @id @default(uuid())
+  issueId             String   @unique @map("issue_id")
+  summary             String
+  affectedFiles       String   @default("[]") @map("affected_files") // JSON array
+  rootCauseHypothesis String   @map("root_cause_hypothesis")
+  suggestedApproach   String   @map("suggested_approach")
+  estimatedEffort     String   @map("estimated_effort")
+  datadogFindings     String?  @map("datadog_findings")
+  dataLayerFindings   String?  @map("data_layer_findings")
+  confidence          String   @default("medium") // high | medium | low
+  openQuestions       String   @default("[]") @map("open_questions") // JSON array
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@map("scoping_reports")
+}
+
+model ActivityEvent {
+  id        String   @id @default(uuid())
+  issueId   String   @map("issue_id")
+  eventType String   @map("event_type") // status_change | agent_scoping_started | agent_scoping_complete | agent_fix_started | agent_fix_complete | comment | priority_change | assigned
+  actor     String   // "devin", username, or "system"
+  message   String
+  metadata  String   @default("{}") // JSON object
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@map("activity_events")
+}
