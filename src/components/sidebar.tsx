@@ -158,6 +158,20 @@ export function Sidebar({ filters, onFilterChange }: SidebarProps) {
           <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest">Filters</h3>
 
           <div>
+            <label className="text-[11px] text-muted-foreground/60 uppercase tracking-wider">Type</label>
+            <Select value={filters.label || "all"} onValueChange={(v) => setFilter("label", v === "all" ? "" : v ?? "")}>
+              <SelectTrigger className="h-8 text-xs mt-1 bg-muted/20 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="feature">Feature</SelectItem>
+                <SelectItem value="bug">Bug</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
             <label className="text-[11px] text-muted-foreground/60 uppercase tracking-wider">Priority</label>
             <Select value={filters.priority || "all"} onValueChange={(v) => setFilter("priority", v === "all" ? "" : v ?? "")}>
               <SelectTrigger className="h-8 text-xs mt-1 bg-muted/20 border-border">
