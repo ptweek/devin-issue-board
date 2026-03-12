@@ -403,8 +403,14 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
             {/* Actions */}
             {(() => {
               const agentBusy = ["scoping", "in_progress"].includes(issue.status) && issue.assignee === "devin";
-              const devinUrl = issue.activityEvents
+              const scopingUrl = issue.activityEvents
                 ?.slice().reverse()
+                .filter(e => e.eventType === "agent_scoping_started" || e.eventType === "agent_scoping_complete")
+                .map(e => (e.metadata as Record<string, unknown>)?.devinUrl as string | undefined)
+                .find(Boolean) || null;
+              const implementUrl = issue.activityEvents
+                ?.slice().reverse()
+                .filter(e => e.eventType === "agent_fix_started" || e.eventType === "agent_fix_complete")
                 .map(e => (e.metadata as Record<string, unknown>)?.devinUrl as string | undefined)
                 .find(Boolean) || null;
               return (
@@ -414,10 +420,17 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                       <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500/20 text-emerald-400/60 border-0 cursor-not-allowed" disabled>
                         <Bot className="w-3 h-3" /> Agent Working...
                       </Button>
-                      {devinUrl && (
-                        <a href={devinUrl} target="_blank" rel="noopener noreferrer">
+                      {scopingUrl && (
+                        <a href={scopingUrl} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-purple-400/80 border-purple-500/20 hover:bg-purple-500/10">
+                            <ExternalLink className="w-3 h-3" /> Scoping Session
+                          </Button>
+                        </a>
+                      )}
+                      {implementUrl && (
+                        <a href={implementUrl} target="_blank" rel="noopener noreferrer">
                           <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-emerald-400/80 border-emerald-500/20 hover:bg-emerald-500/10">
-                            <ExternalLink className="w-3 h-3" /> View Devin Session
+                            <ExternalLink className="w-3 h-3" /> Implementation Session
                           </Button>
                         </a>
                       )}
@@ -430,6 +443,20 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
                         <Bot className="w-3 h-3" /> Assign Agent for Fix
                       </Button>
+                      {scopingUrl && (
+                        <a href={scopingUrl} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-purple-400/80 border-purple-500/20 hover:bg-purple-500/10">
+                            <ExternalLink className="w-3 h-3" /> Scoping Session
+                          </Button>
+                        </a>
+                      )}
+                      {implementUrl && (
+                        <a href={implementUrl} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-emerald-400/80 border-emerald-500/20 hover:bg-emerald-500/10">
+                            <ExternalLink className="w-3 h-3" /> Implementation Session
+                          </Button>
+                        </a>
+                      )}
                     </>
                   )}
                   <Button
