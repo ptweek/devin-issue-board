@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import type { Issue, IssueStatus, Priority } from "@/lib/types";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -115,8 +115,8 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
   };
 
   return (
-    <Sheet open={!!issueId} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 bg-background border-border">
+    <Dialog open={!!issueId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-background" showCloseButton>
         {loading || !issue ? (
           <div className="p-8 animate-pulse space-y-4">
             <div className="h-8 bg-muted/30 rounded w-3/4" />
@@ -126,10 +126,10 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
         ) : (
           <>
             {/* Header */}
-            <SheetHeader className="p-8 pb-5 space-y-4">
-              <SheetTitle className="text-base font-medium leading-tight pr-8 text-foreground">
+            <DialogHeader className="p-8 pb-5 space-y-4">
+              <DialogTitle className="text-base font-medium leading-tight pr-8 text-foreground">
                 {issue.title}
-              </SheetTitle>
+              </DialogTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={issue.status} onValueChange={(v) => v && handleStatusChange(v as IssueStatus)}>
                   <SelectTrigger className="h-7 w-auto text-xs">
@@ -180,7 +180,7 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                   </a>
                 )}
               </div>
-            </SheetHeader>
+            </DialogHeader>
 
             {/* Pipeline Visualization */}
             <PipelineVisualization issue={issue} />
@@ -490,7 +490,7 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
             </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
