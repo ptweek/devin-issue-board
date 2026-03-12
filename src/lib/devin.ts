@@ -29,7 +29,9 @@ export interface DevinSession {
   status: DevinSessionStatus;
   status_detail?: DevinStatusDetail | null;
   structured_output?: Record<string, unknown> | null;
-  pull_requests: Array<{ pr_url: string; pr_state: string }>;
+  // API can return either shape depending on session state
+  pull_requests?: Array<{ pr_url: string; pr_state: string }>;
+  pull_request?: { url: string } | null;
   title?: string | null;
   tags: string[];
   created_at: number;
@@ -124,15 +126,36 @@ export async function createSession(
   });
 }
 
+export function normalizeSessionId(sessionId: string): string {
+  return sessionId.startsWith("devin-") ? sessionId.slice(6) : sessionId;
+}
+
+/**
+ * Normalize PR data from the Devin API, which can return either:
+ * - `pull_requests`: Array<{ pr_url, pr_state }>  (documented shape)
+ * - `pull_request`: { url }                        (actual API shape)
+ */
+export function extractPullRequests(
+  session: DevinSession
+): Array<{ pr_url: string; pr_state: string }> {
+  if (session.pull_requests && session.pull_requests.length > 0) {
+    return session.pull_requests;
+  }
+  if (session.pull_request?.url) {
+    return [{ pr_url: session.pull_request.url, pr_state: "open" }];
+  }
+  return [];
+}
+
 export async function getSession(sessionId: string): Promise<DevinSession> {
-  return devinFetch<DevinSession>(`/sessions/${sessionId}`);
+  return devinFetch<DevinSession>(`/sessions/${normalizeSessionId(sessionId)}`);
 }
 
 export async function sendMessage(
   sessionId: string,
   message: string
 ): Promise<void> {
-  await devinFetch(`/sessions/${sessionId}/messages`, {
+  await devinFetch(`/sessions/${normalizeSessionId(sessionId)}/messages`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });

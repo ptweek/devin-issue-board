@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession, createSession, getPlaybookId } from "@/lib/devin";
+import { getSession, createSession, getPlaybookId, extractPullRequests } from "@/lib/devin";
 import { routeAfterScoping } from "@/lib/routing";
 import { buildImplementationPrompt } from "@/lib/prompts";
 import { serializeIssue } from "@/lib/serialize";
@@ -41,7 +41,7 @@ export async function POST() {
       // (Devin emits structured output / creates PRs before the session fully exits)
       if (session.status === "running" && session.status_detail !== "finished") {
         const hasStructuredOutput = session.structured_output && Object.keys(session.structured_output).length > 0;
-        const hasPRs = session.pull_requests && session.pull_requests.length > 0;
+        const hasPRs = extractPullRequests(session).length > 0;
         if (dbIssue.status === "scoping" && hasStructuredOutput) {
           // Fall through to completion handling below
         } else if (dbIssue.status === "in_progress" && hasPRs) {
@@ -61,7 +61,7 @@ export async function POST() {
       // Session errored or suspended — recover what we can
       if (session.status === "error" || session.status === "suspended") {
         const hasOutput = session.structured_output && Object.keys(session.structured_output).length > 0;
-        const hasPRs = session.pull_requests && session.pull_requests.length > 0;
+        const hasPRs = extractPullRequests(session).length > 0;
 
         if (dbIssue.status === "scoping" && hasOutput) {
           // Ingest the output even though the session didn't exit cleanly
@@ -286,7 +286,8 @@ async function handleFixComplete(
   dbIssue: NonNullable<Awaited<ReturnType<typeof prisma.issue.findFirst>>>,
   session: Awaited<ReturnType<typeof getSession>>
 ) {
-  const prUrls = session.pull_requests.map((pr) => pr.pr_url);
+  const prs = extractPullRequests(session);
+  const prUrls = prs.map((pr) => pr.pr_url);
   const prUrl = prUrls.length > 0 ? prUrls[0] : null;
 
   await prisma.issue.update({
@@ -305,7 +306,7 @@ async function handleFixComplete(
         : "Agent completed fix",
       metadata: JSON.stringify({
         sessionId: session.session_id,
-        pullRequests: session.pull_requests,
+        pullRequests: prs,
       }),
     },
   });

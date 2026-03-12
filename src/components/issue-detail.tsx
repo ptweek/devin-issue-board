@@ -25,7 +25,7 @@ import {
   RepoBadge,
   LabelBadge,
 } from "@/components/status-badge";
-import { updateIssue, dispatchToDevin, dispatchToDevinFix } from "@/hooks/use-issues";
+import { updateIssue, dispatchToDevin, dispatchToDevinFix, pollDevinSessions } from "@/hooks/use-issues";
 import {
   Bot,
   User,
@@ -51,9 +51,35 @@ import {
   Link2,
   KeyRound,
   Layers,
+  GitPullRequest,
+  Plus,
+  Minus,
+  GitBranch,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { PipelineVisualization } from "@/components/pipeline-visualization";
+
+interface PRSummary {
+  title: string;
+  body: string | null;
+  state: string;
+  merged: boolean;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  createdAt: string;
+  updatedAt: string;
+  mergedAt: string | null;
+  user: string;
+  headBranch: string;
+  baseBranch: string;
+  files: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+  }>;
+}
 
 interface IssueDetailProps {
   issueId: string | null;
@@ -276,11 +302,27 @@ function DataLayerFindingsCard({ findings, open, onToggle }: { findings: DataLay
 export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"description" | "scoping" | "activity">("description");
+  const [activeTab, setActiveTab] = useState<"description" | "scoping" | "pr" | "activity">("description");
   const [datadogOpen, setDatadogOpen] = useState(false);
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
   const [editingApproach, setEditingApproach] = useState(false);
   const [approachText, setApproachText] = useState("");
+  const [prSummary, setPrSummary] = useState<PRSummary | null>(null);
+  const [prLoading, setPrLoading] = useState(false);
+
+  const fetchPrSummary = useCallback(async (prUrl: string) => {
+    setPrLoading(true);
+    try {
+      const res = await fetch(`/api/github/pr?url=${encodeURIComponent(prUrl)}`);
+      if (res.ok) {
+        setPrSummary(await res.json());
+      }
+    } catch {
+      // PR fetch is best-effort
+    } finally {
+      setPrLoading(false);
+    }
+  }, []);
 
   const fetchIssue = useCallback(async () => {
     if (!issueId) return;
@@ -289,13 +331,38 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
     const data = await res.json();
     setIssue(data);
     setLoading(false);
-    if (data.scopingReport) setActiveTab("scoping");
-    else setActiveTab("description");
-  }, [issueId]);
+    if (data.prUrl) {
+      setActiveTab("pr");
+      fetchPrSummary(data.prUrl);
+    } else if (data.scopingReport) {
+      setActiveTab("scoping");
+    } else {
+      setActiveTab("description");
+    }
+  }, [issueId, fetchPrSummary]);
 
   useEffect(() => {
     fetchIssue();
   }, [fetchIssue]);
+
+  // Poll for Devin session updates when the issue has an active session
+  useEffect(() => {
+    const agentBusy = issue && ["scoping", "in_progress"].includes(issue.status) && issue.assignee === "devin";
+    if (!agentBusy) return;
+
+    const poll = async () => {
+      try {
+        await pollDevinSessions();
+        fetchIssue();
+        onRefresh();
+      } catch {
+        // Poll failure is non-critical
+      }
+    };
+
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [issue?.status, issue?.assignee, fetchIssue, onRefresh]);
 
   const handleStatusChange = async (status: IssueStatus) => {
     if (!issue) return;
@@ -450,12 +517,16 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                     </>
                   ) : (
                     <>
-                      <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
-                        <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Scope with Agent"}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
-                        <Bot className="w-3 h-3" /> Assign Agent for Fix
-                      </Button>
+                      {["untriaged", "scoping"].includes(issue.status) && (
+                        <>
+                          <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
+                            <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Scope with Agent"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
+                            <Bot className="w-3 h-3" /> Assign Agent for Fix
+                          </Button>
+                        </>
+                      )}
                       {scopingUrl && (
                         <a href={scopingUrl} target="_blank" rel="noopener noreferrer">
                           <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-purple-400/80 border-purple-500/20 hover:bg-purple-500/10">
@@ -488,7 +559,7 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
 
             {/* Tabs */}
             <div className="border-b border-border/50 flex px-8">
-              {(["description", "scoping", "activity"] as const).map((tab) => (
+              {(["description", "scoping", ...(issue.prUrl ? ["pr" as const] : []), "activity"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -498,8 +569,11 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                       : "text-muted-foreground/50 hover:text-muted-foreground"
                   }`}
                 >
-                  {tab === "description" ? "Description" : tab === "scoping" ? "Scoping Report" : "Activity"}
+                  {tab === "description" ? "Description" : tab === "scoping" ? "Scoping Report" : tab === "pr" ? "PR Summary" : "Activity"}
                   {tab === "scoping" && issue.scopingReport && (
+                    <span className="ml-1.5 w-1.5 h-1.5 bg-emerald-500/60 rounded-full inline-block" />
+                  )}
+                  {tab === "pr" && (
                     <span className="ml-1.5 w-1.5 h-1.5 bg-emerald-500/60 rounded-full inline-block" />
                   )}
                   {tab === "activity" && issue.activityEvents && (
@@ -715,6 +789,93 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                     <Button size="sm" className="text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
                       <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Send to Agent"}
                     </Button>
+                  </div>
+                )
+              )}
+
+              {activeTab === "pr" && (
+                prLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-6 bg-muted/30 rounded w-2/3" />
+                    <div className="h-4 bg-muted/30 rounded w-1/3" />
+                    <div className="h-32 bg-muted/30 rounded" />
+                  </div>
+                ) : prSummary ? (
+                  <div className="space-y-6">
+                    {/* PR Header */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <GitPullRequest className={`w-4 h-4 ${prSummary.merged ? "text-purple-400" : prSummary.state === "open" ? "text-emerald-400" : "text-red-400"}`} />
+                        <h4 className="text-sm font-medium text-foreground/90">{prSummary.title}</h4>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground/60">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          prSummary.merged
+                            ? "bg-purple-500/15 text-purple-400"
+                            : prSummary.state === "open"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : "bg-red-500/15 text-red-400"
+                        }`}>
+                          {prSummary.merged ? "Merged" : prSummary.state}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Bot className="w-3 h-3" /> {prSummary.user}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <GitBranch className="w-3 h-3" /> {prSummary.headBranch} → {prSummary.baseBranch}
+                        </span>
+                        <a href={issue.prUrl!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground/70 transition-colors ml-auto">
+                          <ExternalLink className="w-3 h-3" /> View on GitHub
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-emerald-400 flex items-center gap-0.5"><Plus className="w-3 h-3" />{prSummary.additions}</span>
+                        <span className="text-red-400 flex items-center gap-0.5"><Minus className="w-3 h-3" />{prSummary.deletions}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground/50">{prSummary.changedFiles} file{prSummary.changedFiles !== 1 ? "s" : ""} changed</span>
+                    </div>
+
+                    {/* Description */}
+                    {prSummary.body && (
+                      <div>
+                        <h4 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest mb-2">Description</h4>
+                        <pre className="text-sm text-muted-foreground bg-muted/20 rounded-md p-4 font-mono whitespace-pre-wrap leading-relaxed border border-border/50 max-h-64 overflow-y-auto">
+                          {prSummary.body}
+                        </pre>
+                      </div>
+                    )}
+
+                    <div className="h-px bg-border/50" />
+
+                    {/* Changed Files */}
+                    <div>
+                      <h4 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest mb-2">Changed Files</h4>
+                      <div className="space-y-1">
+                        {prSummary.files.map((file) => (
+                          <div key={file.filename} className="flex items-center gap-2 text-xs font-mono bg-muted/15 rounded px-3 py-2 border border-border/30">
+                            <FileCode className="w-3 h-3 shrink-0 text-muted-foreground/40" />
+                            <span className="text-muted-foreground flex-1 truncate">{file.filename}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                              file.status === "added" ? "bg-emerald-500/10 text-emerald-400" :
+                              file.status === "removed" ? "bg-red-500/10 text-red-400" :
+                              "bg-amber-500/10 text-amber-400"
+                            }`}>{file.status}</span>
+                            <span className="text-emerald-400/70 text-[10px]">+{file.additions}</span>
+                            <span className="text-red-400/70 text-[10px]">-{file.deletions}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <GitPullRequest className="w-10 h-10 mb-3 text-muted-foreground/20" />
+                    <p className="text-sm mb-1">Could not load PR details</p>
+                    <p className="text-xs text-muted-foreground/40">The GitHub API may be rate-limited or the PR is private</p>
                   </div>
                 )
               )}

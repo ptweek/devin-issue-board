@@ -16,7 +16,16 @@
       "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \".schema scoping_reports\")",
       "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.id, i.title, i.status, i.scoping_session_id, sr.id as reportId FROM issues i LEFT JOIN scoping_reports sr ON sr.issue_id = i.id WHERE i.title LIKE ''%penny%'' OR i.title LIKE ''%order total%'';\")",
       "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT * FROM activity_events WHERE issue_id = ''9fa4f9b0-2567-4715-b116-a9ead93cb18e'' ORDER BY created_at;\")",
-      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.status, sr.summary, sr.confidence, sr.estimated_effort FROM issues i LEFT JOIN scoping_reports sr ON sr.issue_id = i.id WHERE i.id = ''9fa4f9b0-2567-4715-b116-a9ead93cb18e'';\")"
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.status, sr.summary, sr.confidence, sr.estimated_effort FROM issues i LEFT JOIN scoping_reports sr ON sr.issue_id = i.id WHERE i.id = ''9fa4f9b0-2567-4715-b116-a9ead93cb18e'';\")",
+      "Bash(grep -r c0371c91d697419088d1a49d46b6a17e --include=*.ts --include=*.json --include=*.env* --include=*.prisma -l)",
+      "Bash(cat .env*)",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/prisma/dev.db \"SELECT id, title, status, implement_session_id, scoping_session_id, pr_url FROM issues WHERE implement_session_id = ''c0371c91d697419088d1a49d46b6a17e'' OR title LIKE ''%penny%'' OR title LIKE ''%order total%'';\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT scoping_session_id, implement_session_id FROM issues WHERE scoping_session_id IS NOT NULL OR implement_session_id IS NOT NULL;\")",
+      "Bash(curl -s http://localhost:3000/api/issues/9fa4f9b0-2567-4715-b116-a9ead93cb18e)",
+      "Bash(curl -s -H \"Authorization: Bearer apk_user_ZW1haWx8Njk5NGRlNGU0MjI1MDlhZjFiNGViYmViX29yZy03ZWIyYTRmNGY0NzI0NDRjOWU3MjA5YTIxNTc5ZDI1NTplNjgxNzkwNzBlZTI0NDFiYTM4NzliOGQ0MGNkZTZkYg==\" \"https://api.devin.ai/v1/sessions/c0371c91d697419088d1a49d46b6a17e\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f''''status: {d[\"\"status\"\"]}\\\\nprUrl: {d[\"\"prUrl\"\"]}''''\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/github/pr?url=https://github.com/ptweek/shopflow/pull/6\")",
+      "Bash(git reset:*)"
     ]
   }
 }
