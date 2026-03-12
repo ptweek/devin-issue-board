@@ -192,12 +192,92 @@ export function getScopingOutputSchema(): Record<string, unknown> {
         description: "Recommended priority based on impact/value analysis",
       },
       datadogFindings: {
-        type: ["string", "null"],
-        description: "Findings from DataDog logs (error rates, stack traces, etc.)",
+        type: ["object", "null"],
+        description: "Structured findings from Datadog investigation",
+        properties: {
+          investigationRationale: {
+            type: "string",
+            description: "Why you looked at Datadog — what signal were you trying to find?",
+          },
+          searches: {
+            type: "array",
+            items: { type: "string" },
+            description: "Queries/filters/time windows you searched",
+          },
+          findings: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["error", "latency", "trace", "monitor", "log"],
+                  description: "Category of finding",
+                },
+                title: { type: "string", description: "Brief title of the finding" },
+                detail: { type: "string", description: "Details — error messages, stack traces, metrics" },
+                severity: {
+                  type: "string",
+                  enum: ["critical", "warning", "info"],
+                  description: "How severe this finding is",
+                },
+              },
+              required: ["type", "title", "detail"],
+            },
+            description: "Individual findings from Datadog",
+          },
+          productionStatus: {
+            type: "string",
+            enum: ["ongoing", "resolved", "intermittent", "unknown"],
+            description: "Current production status of the issue",
+          },
+          impactOnScoping: {
+            type: "string",
+            description: "How these findings change your understanding of the issue's scope or priority",
+          },
+        },
+        required: ["investigationRationale", "findings", "productionStatus", "impactOnScoping"],
       },
       dataLayerFindings: {
-        type: ["string", "null"],
-        description: "Findings from database/data layer investigation",
+        type: ["object", "null"],
+        description: "Structured findings from Prisma/data layer investigation",
+        properties: {
+          investigationRationale: {
+            type: "string",
+            description: "Why you inspected the production data",
+          },
+          modelsExamined: {
+            type: "array",
+            items: { type: "string" },
+            description: "Which models/tables you inspected",
+          },
+          findings: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["schema", "data", "index", "constraint", "relationship"],
+                  description: "Category of finding",
+                },
+                title: { type: "string", description: "Brief title of the finding" },
+                detail: { type: "string", description: "Details — row counts, data shape, constraints" },
+              },
+              required: ["type", "title", "detail"],
+            },
+            description: "Individual findings from data layer investigation",
+          },
+          schemaVsReality: {
+            type: ["string", "null"],
+            description: "Any discrepancies between schema.prisma and actual production state",
+          },
+          impactOnScoping: {
+            type: "string",
+            description: "How findings inform complexity, approach, or risk",
+          },
+        },
+        required: ["investigationRationale", "findings", "impactOnScoping"],
       },
     },
     required: [

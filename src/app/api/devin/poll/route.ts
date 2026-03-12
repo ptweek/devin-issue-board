@@ -8,11 +8,13 @@ import { v4 as uuid } from "uuid";
 import type { Confidence, Issue } from "@/lib/types";
 
 export async function POST() {
-  // Find all issues with active Devin sessions
+  // Find all issues with active Devin sessions (scoping or implementation)
   const activeIssues = await prisma.issue.findMany({
     where: {
-      devinSessionId: { not: null },
-      status: { in: ["scoping", "in_progress"] },
+      OR: [
+        { scopingSessionId: { not: null }, status: "scoping" },
+        { implementSessionId: { not: null }, status: "in_progress" },
+      ],
     },
     include: { scopingReport: true },
   });
@@ -25,15 +27,29 @@ export async function POST() {
   let stillActive = 0;
 
   for (const dbIssue of activeIssues) {
-    if (!dbIssue.devinSessionId) continue;
+    // Pick the right session ID based on the issue's current phase
+    const sessionId = dbIssue.status === "scoping"
+      ? dbIssue.scopingSessionId
+      : dbIssue.implementSessionId;
+
+    if (!sessionId) continue;
 
     try {
-      const session = await getSession(dbIssue.devinSessionId);
+      const session = await getSession(sessionId);
 
-      // Session still running
+      // Session still running — but if output is already available, treat as complete
+      // (Devin emits structured output / creates PRs before the session fully exits)
       if (session.status === "running" && session.status_detail !== "finished") {
-        stillActive++;
-        continue;
+        const hasStructuredOutput = session.structured_output && Object.keys(session.structured_output).length > 0;
+        const hasPRs = session.pull_requests && session.pull_requests.length > 0;
+        if (dbIssue.status === "scoping" && hasStructuredOutput) {
+          // Fall through to completion handling below
+        } else if (dbIssue.status === "in_progress" && hasPRs) {
+          // Fall through to completion handling below
+        } else {
+          stillActive++;
+          continue;
+        }
       }
 
       // Session is new or claimed (still starting up)
@@ -42,23 +58,70 @@ export async function POST() {
         continue;
       }
 
-      // Session errored or suspended
+      // Session errored or suspended — recover what we can
       if (session.status === "error" || session.status === "suspended") {
-        await prisma.activityEvent.create({
-          data: {
-            id: uuid(),
-            issueId: dbIssue.id,
-            eventType: "comment",
-            actor: "system",
-            message: `Devin session ${session.status}: ${session.status_detail || "unknown reason"}`,
-            metadata: JSON.stringify({
-              devinSessionId: session.session_id,
-              devinStatus: session.status,
-              devinStatusDetail: session.status_detail,
-            }),
-          },
-        });
-        updated.push({ issueId: dbIssue.id, newStatus: dbIssue.status, detail: session.status });
+        const hasOutput = session.structured_output && Object.keys(session.structured_output).length > 0;
+        const hasPRs = session.pull_requests && session.pull_requests.length > 0;
+
+        if (dbIssue.status === "scoping" && hasOutput) {
+          // Ingest the output even though the session didn't exit cleanly
+          await handleScopingComplete(dbIssue, session);
+          await prisma.activityEvent.create({
+            data: {
+              id: uuid(),
+              issueId: dbIssue.id,
+              eventType: "comment",
+              actor: "system",
+              message: `Devin session ${session.status} — scoping output was recovered`,
+              metadata: JSON.stringify({
+                sessionId: session.session_id,
+                devinStatus: session.status,
+              }),
+            },
+          });
+          updated.push({ issueId: dbIssue.id, newStatus: "routed", detail: `${session.status} (output recovered)` });
+        } else if (dbIssue.status === "in_progress" && hasPRs) {
+          // Implementation session errored but a PR exists — treat as complete
+          await handleFixComplete(dbIssue, session);
+          await prisma.activityEvent.create({
+            data: {
+              id: uuid(),
+              issueId: dbIssue.id,
+              eventType: "comment",
+              actor: "system",
+              message: `Devin session ${session.status} — PR was recovered`,
+              metadata: JSON.stringify({
+                sessionId: session.session_id,
+                devinStatus: session.status,
+              }),
+            },
+          });
+          updated.push({ issueId: dbIssue.id, newStatus: "in_review", detail: `${session.status} (PR recovered)` });
+        } else {
+          await prisma.activityEvent.create({
+            data: {
+              id: uuid(),
+              issueId: dbIssue.id,
+              eventType: "comment",
+              actor: "system",
+              message: `Devin session ${session.status}: ${session.status_detail || "unknown reason"}`,
+              metadata: JSON.stringify({
+                sessionId: session.session_id,
+                devinStatus: session.status,
+                devinStatusDetail: session.status_detail,
+              }),
+            },
+          });
+          // Clear the relevant session so the issue isn't stuck
+          const clearData = dbIssue.status === "scoping"
+            ? { scopingSessionId: null }
+            : { implementSessionId: null };
+          await prisma.issue.update({
+            where: { id: dbIssue.id },
+            data: clearData,
+          });
+          updated.push({ issueId: dbIssue.id, newStatus: dbIssue.status, detail: session.status });
+        }
         continue;
       }
 
@@ -105,8 +168,8 @@ async function handleScopingComplete(
         rootCauseHypothesis: (output.rootCauseHypothesis as string) || "",
         suggestedApproach: (output.suggestedApproach as string) || "",
         estimatedEffort: (output.estimatedEffort as string) || "unknown",
-        datadogFindings: (output.datadogFindings as string) || null,
-        dataLayerFindings: (output.dataLayerFindings as string) || null,
+        datadogFindings: output.datadogFindings ? JSON.stringify(output.datadogFindings) : null,
+        dataLayerFindings: output.dataLayerFindings ? JSON.stringify(output.dataLayerFindings) : null,
         confidence,
         openQuestions: JSON.stringify(output.openQuestions || []),
       },
@@ -123,9 +186,15 @@ async function handleScopingComplete(
       message: `Agent completed scoping with ${confidence} confidence`,
       metadata: JSON.stringify({
         confidence,
-        devinSessionId: session.session_id,
+        sessionId: session.session_id,
       }),
     },
+  });
+
+  // Always update priority from Devin's recommendation
+  await prisma.issue.update({
+    where: { id: dbIssue.id },
+    data: { priority },
   });
 
   // Apply routing logic
@@ -141,7 +210,6 @@ async function handleScopingComplete(
       data: {
         status: routing.nextStatus,
         assignee: routing.assignee,
-        priority,
       },
     });
   }
@@ -152,7 +220,7 @@ async function autoDispatchImplementation(
   scopingOutput: Record<string, unknown>
 ) {
   try {
-    const playbookId = await getPlaybookId("Implement");
+    const playbookId = await getPlaybookId("Implement Feature");
 
     // Build issue type for prompt
     const issue = serializeIssue(dbIssue) as unknown as Issue;
@@ -164,8 +232,8 @@ async function autoDispatchImplementation(
       rootCauseHypothesis: (scopingOutput.rootCauseHypothesis as string) || "",
       suggestedApproach: (scopingOutput.suggestedApproach as string) || "",
       estimatedEffort: (scopingOutput.estimatedEffort as string) || "",
-      datadogFindings: (scopingOutput.datadogFindings as string) || null,
-      dataLayerFindings: (scopingOutput.dataLayerFindings as string) || null,
+      datadogFindings: scopingOutput.datadogFindings ? JSON.stringify(scopingOutput.datadogFindings) : null,
+      dataLayerFindings: scopingOutput.dataLayerFindings ? JSON.stringify(scopingOutput.dataLayerFindings) : null,
       confidence: (scopingOutput.confidence as "high" | "medium" | "low") || "medium",
       openQuestions: (scopingOutput.openQuestions as string[]) || [],
       createdAt: new Date().toISOString(),
@@ -184,8 +252,9 @@ async function autoDispatchImplementation(
       data: {
         status: "in_progress",
         assignee: "devin",
-        devinSessionId: session.session_id,
-        priority: (scopingOutput.priority as string) || dbIssue.priority,
+        implementSessionId: session.session_id,
+        // Priority already set in handleScopingComplete
+        // scopingSessionId is preserved so we keep the history
       },
     });
 
@@ -197,7 +266,7 @@ async function autoDispatchImplementation(
         actor: "devin",
         message: "Agent auto-dispatched for implementation (high confidence)",
         metadata: JSON.stringify({
-          devinSessionId: session.session_id,
+          sessionId: session.session_id,
           devinUrl: session.url,
           autoDispatched: true,
         }),
@@ -218,10 +287,11 @@ async function handleFixComplete(
   session: Awaited<ReturnType<typeof getSession>>
 ) {
   const prUrls = session.pull_requests.map((pr) => pr.pr_url);
+  const prUrl = prUrls.length > 0 ? prUrls[0] : null;
 
   await prisma.issue.update({
     where: { id: dbIssue.id },
-    data: { status: "in_review" },
+    data: { status: "in_review", prUrl, implementSessionId: null },
   });
 
   await prisma.activityEvent.create({
@@ -234,7 +304,7 @@ async function handleFixComplete(
         ? `Agent completed fix — PR: ${prUrls.join(", ")}`
         : "Agent completed fix",
       metadata: JSON.stringify({
-        devinSessionId: session.session_id,
+        sessionId: session.session_id,
         pullRequests: session.pull_requests,
       }),
     },

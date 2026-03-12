@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { Issue, IssueStatus, Priority } from "@/lib/types";
+import type { Issue, IssueStatus, Priority, DatadogFindings, DataLayerFindings } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,17 @@ import {
   Pencil,
   CheckCircle,
   Zap,
+  Activity,
+  Database,
+  Search,
+  BarChart3,
+  Radio,
+  Shield,
+  CircleDot,
+  Table2,
+  Link2,
+  KeyRound,
+  Layers,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { PipelineVisualization } from "@/components/pipeline-visualization";
@@ -48,6 +59,205 @@ interface IssueDetailProps {
   issueId: string | null;
   onClose: () => void;
   onRefresh: () => void;
+}
+
+// --- Structured Findings Components ---
+
+const ddFindingTypeIcon: Record<string, React.ReactNode> = {
+  error: <XCircle className="w-3.5 h-3.5" />,
+  latency: <BarChart3 className="w-3.5 h-3.5" />,
+  trace: <Activity className="w-3.5 h-3.5" />,
+  monitor: <Radio className="w-3.5 h-3.5" />,
+  log: <Search className="w-3.5 h-3.5" />,
+};
+
+const ddSeverityStyles: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  critical: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-400" },
+  warning: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-400" },
+  info: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20", dot: "bg-blue-400" },
+};
+
+const ddStatusStyles: Record<string, { bg: string; text: string; label: string }> = {
+  ongoing: { bg: "bg-red-500/15", text: "text-red-400", label: "Ongoing" },
+  resolved: { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "Resolved" },
+  intermittent: { bg: "bg-amber-500/15", text: "text-amber-400", label: "Intermittent" },
+  unknown: { bg: "bg-muted/30", text: "text-muted-foreground", label: "Unknown" },
+};
+
+function DatadogFindingsCard({ findings, open, onToggle }: { findings: DatadogFindings | string; open: boolean; onToggle: () => void }) {
+  // Legacy plain-text support
+  if (typeof findings === "string") {
+    return (
+      <div>
+        <button onClick={onToggle} className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest hover:text-muted-foreground transition-colors">
+          {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          <Activity className="w-3 h-3" /> Datadog Findings
+        </button>
+        {open && <p className="mt-3 text-sm text-muted-foreground bg-muted/15 rounded-md p-4 leading-relaxed border border-border/30">{findings}</p>}
+      </div>
+    );
+  }
+
+  const status = ddStatusStyles[findings.productionStatus] || ddStatusStyles.unknown;
+
+  return (
+    <div className="border border-purple-500/15 rounded-lg overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-purple-500/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-purple-500/15 flex items-center justify-center">
+            <Activity className="w-3.5 h-3.5 text-purple-400" />
+          </div>
+          <span className="text-[11px] font-medium text-purple-400/80 uppercase tracking-widest">Datadog Findings</span>
+          <span className="text-[10px] text-muted-foreground/40 font-mono">{findings.findings.length} signal{findings.findings.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${status.bg} ${status.text}`}>
+            {status.label}
+          </span>
+          {open ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/40" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4">
+          {/* Rationale */}
+          <p className="text-xs text-muted-foreground/60 italic">{findings.investigationRationale}</p>
+
+          {/* Search queries */}
+          {findings.searches && findings.searches.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {findings.searches.map((q, i) => (
+                <span key={i} className="text-[10px] font-mono text-purple-400/60 bg-purple-500/10 px-2 py-0.5 rounded">
+                  {q}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Findings */}
+          <div className="space-y-2">
+            {findings.findings.map((f, i) => {
+              const sev = ddSeverityStyles[f.severity || "info"] || ddSeverityStyles.info;
+              return (
+                <div key={i} className={`rounded-md border ${sev.border} ${sev.bg} p-3`}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={sev.text}>{ddFindingTypeIcon[f.type] || <CircleDot className="w-3.5 h-3.5" />}</span>
+                    <span className={`text-xs font-medium ${sev.text}`}>{f.title}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
+                    <span className="text-[9px] text-muted-foreground/40 uppercase">{f.type}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground/70 leading-relaxed pl-5.5">{f.detail}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Impact */}
+          <div className="border-t border-purple-500/10 pt-3">
+            <h5 className="text-[10px] font-medium text-purple-400/60 uppercase tracking-wider mb-1">Impact on Scoping</h5>
+            <p className="text-xs text-muted-foreground/70">{findings.impactOnScoping}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const dlFindingTypeIcon: Record<string, React.ReactNode> = {
+  schema: <Layers className="w-3.5 h-3.5" />,
+  data: <Table2 className="w-3.5 h-3.5" />,
+  index: <BarChart3 className="w-3.5 h-3.5" />,
+  constraint: <Shield className="w-3.5 h-3.5" />,
+  relationship: <Link2 className="w-3.5 h-3.5" />,
+};
+
+function DataLayerFindingsCard({ findings, open, onToggle }: { findings: DataLayerFindings | string; open: boolean; onToggle: () => void }) {
+  // Legacy plain-text support
+  if (typeof findings === "string") {
+    return (
+      <div>
+        <button onClick={onToggle} className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest hover:text-muted-foreground transition-colors">
+          {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          <Database className="w-3 h-3" /> Data Layer Findings
+        </button>
+        {open && <p className="mt-3 text-sm text-muted-foreground bg-muted/15 rounded-md p-4 leading-relaxed border border-border/30">{findings}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-cyan-500/15 rounded-lg overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-cyan-500/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-cyan-500/15 flex items-center justify-center">
+            <Database className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <span className="text-[11px] font-medium text-cyan-400/80 uppercase tracking-widest">Data Layer Findings</span>
+          <span className="text-[10px] text-muted-foreground/40 font-mono">{findings.findings.length} finding{findings.findings.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {findings.modelsExamined && (
+            <span className="text-[10px] text-muted-foreground/40 font-mono">{findings.modelsExamined.length} model{findings.modelsExamined.length !== 1 ? "s" : ""}</span>
+          )}
+          {open ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/40" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4">
+          {/* Rationale */}
+          <p className="text-xs text-muted-foreground/60 italic">{findings.investigationRationale}</p>
+
+          {/* Models examined */}
+          {findings.modelsExamined && findings.modelsExamined.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {findings.modelsExamined.map((m, i) => (
+                <span key={i} className="text-[10px] font-mono text-cyan-400/60 bg-cyan-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+                  <KeyRound className="w-2.5 h-2.5" /> {m}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Findings */}
+          <div className="space-y-2">
+            {findings.findings.map((f, i) => (
+              <div key={i} className="rounded-md border border-cyan-500/15 bg-cyan-500/5 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-cyan-400/70">{dlFindingTypeIcon[f.type] || <CircleDot className="w-3.5 h-3.5" />}</span>
+                  <span className="text-xs font-medium text-cyan-400/80">{f.title}</span>
+                  <span className="text-[9px] text-muted-foreground/40 uppercase">{f.type}</span>
+                </div>
+                <p className="text-xs text-muted-foreground/70 leading-relaxed pl-5.5">{f.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Schema vs Reality */}
+          {findings.schemaVsReality && (
+            <div className="border border-amber-500/15 bg-amber-500/5 rounded-md p-3">
+              <h5 className="text-[10px] font-medium text-amber-400/70 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> Schema vs Reality
+              </h5>
+              <p className="text-xs text-muted-foreground/70">{findings.schemaVsReality}</p>
+            </div>
+          )}
+
+          {/* Impact */}
+          <div className="border-t border-cyan-500/10 pt-3">
+            <h5 className="text-[10px] font-medium text-cyan-400/60 uppercase tracking-wider mb-1">Impact on Scoping</h5>
+            <p className="text-xs text-muted-foreground/70">{findings.impactOnScoping}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
@@ -174,6 +384,11 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
                   <Clock className="w-3 h-3" />
                   {issue.staleDays}d stale
                 </span>
+                {issue.prUrl && (
+                  <a href={issue.prUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-emerald-400/70 hover:text-emerald-400 transition-colors">
+                    <ExternalLink className="w-3 h-3" /> Pull Request
+                  </a>
+                )}
                 {issue.sourceUrl && (
                   <a href={issue.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground/70 transition-colors">
                     <ExternalLink className="w-3 h-3" /> GitHub
@@ -327,38 +542,20 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
 
                     {/* Datadog findings */}
                     {issue.scopingReport.datadogFindings && (
-                      <div>
-                        <button
-                          onClick={() => setDatadogOpen(!datadogOpen)}
-                          className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest hover:text-muted-foreground transition-colors"
-                        >
-                          {datadogOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                          Datadog Findings
-                        </button>
-                        {datadogOpen && (
-                          <p className="mt-3 text-sm text-muted-foreground bg-muted/15 rounded-md p-4 leading-relaxed border border-border/30">
-                            {issue.scopingReport.datadogFindings}
-                          </p>
-                        )}
-                      </div>
+                      <DatadogFindingsCard
+                        findings={issue.scopingReport.datadogFindings}
+                        open={datadogOpen}
+                        onToggle={() => setDatadogOpen(!datadogOpen)}
+                      />
                     )}
 
                     {/* Data layer findings */}
                     {issue.scopingReport.dataLayerFindings && (
-                      <div>
-                        <button
-                          onClick={() => setDataLayerOpen(!dataLayerOpen)}
-                          className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest hover:text-muted-foreground transition-colors"
-                        >
-                          {dataLayerOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                          Data Layer Findings
-                        </button>
-                        {dataLayerOpen && (
-                          <p className="mt-3 text-sm text-muted-foreground bg-muted/15 rounded-md p-4 leading-relaxed border border-border/30">
-                            {issue.scopingReport.dataLayerFindings}
-                          </p>
-                        )}
-                      </div>
+                      <DataLayerFindingsCard
+                        findings={issue.scopingReport.dataLayerFindings}
+                        open={dataLayerOpen}
+                        onToggle={() => setDataLayerOpen(!dataLayerOpen)}
+                      />
                     )}
 
                     {/* Approval / Review Actions */}

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sv http://localhost:3000/api/devin/poll -X POST)",
+      "Bash(sqlite3 ./dev.db \"SELECT id, title, status, pr_url, scoping_session_id, implement_session_id FROM issues WHERE status IN \\(''in_progress'', ''in_review''\\) OR implement_session_id IS NOT NULL;\")",
+      "Bash(curl -s http://localhost:3000/api/devin/poll -X POST -H \"X-Debug: true\")",
+      "Bash(sqlite3 ./dev.db \"UPDATE issues SET status = ''untriaged'', assignee = NULL, pr_url = NULL, scoping_session_id = NULL, implement_session_id = NULL WHERE id IN \\(''2a806f0f-b2b8-4d32-b1c9-445ed02ade04'', ''bd5dcbb2-f77a-449e-84a3-049d9d4ac01f''\\);\")",
+      "Bash(sqlite3 ./dev.db \"SELECT id, substr\\(title,1,50\\), status, scoping_session_id, implement_session_id, pr_url FROM issues WHERE id IN \\(''2a806f0f-b2b8-4d32-b1c9-445ed02ade04'', ''bd5dcbb2-f77a-449e-84a3-049d9d4ac01f''\\);\")",
+      "Bash(sqlite3 dev.db \"SELECT i.id, i.title, i.status, i.scopingSessionId, sr.id as reportId FROM Issue i LEFT JOIN ScopingReport sr ON sr.issueId = i.id WHERE i.title LIKE ''%penny%'' OR i.title LIKE ''%order total%'';\")",
+      "Bash(ls /Users/patrickbradley/Interviews/cognition/devin-issue-board/*.db /Users/patrickbradley/Interviews/cognition/devin-issue-board/prisma/*.db)",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/prisma/dev.db \".tables\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \".tables\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.id, i.title, i.status, i.scopingSessionId, sr.id as reportId, sr.summary FROM issues i LEFT JOIN scoping_reports sr ON sr.issueId = i.id WHERE i.title LIKE ''%penny%'' OR i.title LIKE ''%order total%'';\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \".schema issues\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.id, i.title, i.status, i.scoping_session_id, sr.id as reportId FROM issues i LEFT JOIN scoping_reports sr ON sr.issueId = i.id WHERE i.title LIKE ''%penny%'' OR i.title LIKE ''%order total%'';\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \".schema scoping_reports\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.id, i.title, i.status, i.scoping_session_id, sr.id as reportId FROM issues i LEFT JOIN scoping_reports sr ON sr.issue_id = i.id WHERE i.title LIKE ''%penny%'' OR i.title LIKE ''%order total%'';\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT * FROM activity_events WHERE issue_id = ''9fa4f9b0-2567-4715-b116-a9ead93cb18e'' ORDER BY created_at;\")",
+      "Bash(sqlite3 /Users/patrickbradley/Interviews/cognition/devin-issue-board/dev.db \"SELECT i.status, sr.summary, sr.confidence, sr.estimated_effort FROM issues i LEFT JOIN scoping_reports sr ON sr.issue_id = i.id WHERE i.id = ''9fa4f9b0-2567-4715-b116-a9ead93cb18e'';\")"
+    ]
+  }
+}

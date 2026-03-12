@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Inbox,
   Search,
@@ -17,9 +16,6 @@ import {
   Bug,
   Lightbulb,
   ArrowDown,
-  ArrowRight,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 
 // --- Types ---
@@ -34,42 +30,9 @@ interface WorkflowNode {
   actor?: string;
 }
 
-interface WorkflowBranch {
-  condition: string;
-  color: "emerald" | "amber" | "muted";
-}
-
 // --- Data ---
 
-const scopingNode: WorkflowNode = {
-  id: "scoping",
-  label: "Agent Scoping",
-  description: "Concurrent Devin sessions analyze the issue",
-  details: [
-    "Understanding the bug or feature request",
-    "Reading through the codebase in sandbox environment",
-    "Accessing the database for data layer examples (MCP)",
-    "Reading DataDog logs for errors and events (MCP)",
-    "Generating issue summary & implementation plan",
-    "Assigning a confidence level (High / Medium / Low)",
-  ],
-  icon: <Search className="w-5 h-5" />,
-  color: "emerald",
-  actor: "Devin",
-};
-
-const workflowNodes: {
-  intake: WorkflowNode;
-  bugTriage: WorkflowNode;
-  featureDev: WorkflowNode;
-  confidenceGate: WorkflowNode;
-  highPath: WorkflowNode;
-  reviewPath: WorkflowNode;
-  editPlan: WorkflowNode;
-  implementation: WorkflowNode;
-  prReview: WorkflowNode;
-  resolved: WorkflowNode;
-} = {
+const workflowNodes = {
   intake: {
     id: "intake",
     label: "Batch Send to Scoping",
@@ -80,7 +43,7 @@ const workflowNodes: {
       "Each issue gets its own scoping agent",
     ],
     icon: <Inbox className="w-5 h-5" />,
-    color: "muted",
+    color: "muted" as const,
     actor: "Engineer",
   },
   bugTriage: {
@@ -95,7 +58,7 @@ const workflowNodes: {
       "Identifies root cause hypothesis",
     ],
     icon: <Bug className="w-5 h-5" />,
-    color: "emerald",
+    color: "emerald" as const,
     actor: "Devin",
   },
   featureDev: {
@@ -109,7 +72,7 @@ const workflowNodes: {
       "Breaks feature into implementation steps",
     ],
     icon: <Lightbulb className="w-5 h-5" />,
-    color: "blue",
+    color: "blue" as const,
     actor: "Devin",
   },
   confidenceGate: {
@@ -117,7 +80,7 @@ const workflowNodes: {
     label: "Confidence Gate",
     description: "Routes based on agent's confidence in the implementation plan",
     icon: <GitBranch className="w-5 h-5" />,
-    color: "amber",
+    color: "amber" as const,
     actor: "System",
   },
   highPath: {
@@ -130,7 +93,7 @@ const workflowNodes: {
       "Sent to Sr. Engineers for final review",
     ],
     icon: <Zap className="w-5 h-5" />,
-    color: "emerald",
+    color: "emerald" as const,
     actor: "System",
   },
   reviewPath: {
@@ -143,7 +106,7 @@ const workflowNodes: {
       "Can edit the suggested approach before dispatch",
     ],
     icon: <UserCheck className="w-5 h-5" />,
-    color: "amber",
+    color: "amber" as const,
     actor: "Jr. Engineer",
   },
   editPlan: {
@@ -156,7 +119,7 @@ const workflowNodes: {
       "Approve & dispatch to agent",
     ],
     icon: <Pencil className="w-5 h-5" />,
-    color: "amber",
+    color: "amber" as const,
     actor: "Jr. Engineer",
   },
   implementation: {
@@ -170,7 +133,7 @@ const workflowNodes: {
       "Handles open questions from scoping",
     ],
     icon: <Code className="w-5 h-5" />,
-    color: "emerald",
+    color: "emerald" as const,
     actor: "Devin",
   },
   prReview: {
@@ -183,7 +146,7 @@ const workflowNodes: {
       "Merge or request changes",
     ],
     icon: <GitPullRequest className="w-5 h-5" />,
-    color: "amber",
+    color: "amber" as const,
     actor: "Sr. Engineer",
   },
   resolved: {
@@ -191,7 +154,7 @@ const workflowNodes: {
     label: "Resolved",
     description: "PR merged, issue closed",
     icon: <CheckCircle2 className="w-5 h-5" />,
-    color: "emerald",
+    color: "emerald" as const,
     actor: "System",
   },
 };
@@ -239,25 +202,11 @@ const colorStyles = {
 
 // --- Components ---
 
-function NodeCard({
-  node,
-  expanded,
-  onToggle,
-}: {
-  node: WorkflowNode;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function NodeCard({ node }: { node: WorkflowNode }) {
   const styles = colorStyles[node.color];
-  const hasDetails = node.details && node.details.length > 0;
 
   return (
-    <div
-      className={`rounded-lg border ${styles.border} ${styles.bg} ${styles.glow} p-5 transition-all duration-200 ${
-        hasDetails ? "cursor-pointer hover:brightness-110" : ""
-      }`}
-      onClick={hasDetails ? onToggle : undefined}
-    >
+    <div className={`rounded-lg border ${styles.border} ${styles.bg} ${styles.glow} p-5`}>
       <div className="flex items-start gap-3">
         <div className={`w-10 h-10 rounded-lg border ${styles.border} bg-background/50 flex items-center justify-center shrink-0`}>
           <span className={styles.icon}>{node.icon}</span>
@@ -271,17 +220,12 @@ function NodeCard({
                 {node.actor}
               </span>
             )}
-            {hasDetails && (
-              <span className="text-muted-foreground/30 ml-auto">
-                {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              </span>
-            )}
           </div>
           <p className="text-xs text-muted-foreground/60 leading-relaxed">{node.description}</p>
         </div>
       </div>
 
-      {expanded && node.details && (
+      {node.details && (
         <div className="mt-4 ml-[52px] space-y-1.5">
           {node.details.map((detail, i) => (
             <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/50">
@@ -304,26 +248,6 @@ function VerticalConnector({ color = "muted", label }: { color?: "emerald" | "am
         <span className={`text-[10px] font-medium px-2 py-0.5 ${styles.text} opacity-70`}>{label}</span>
       )}
       <ArrowDown className={`w-3 h-3 ${styles.text} opacity-50`} />
-    </div>
-  );
-}
-
-function BranchSplit({ leftLabel, rightLabel }: { leftLabel: string; rightLabel: string }) {
-  return (
-    <div className="relative flex items-center justify-center py-2">
-      <div className="absolute top-1/2 left-[15%] right-[15%] h-px bg-border/40" />
-      <div className="flex w-full justify-between px-[10%]">
-        <div className="flex flex-col items-center">
-          <div className="w-px h-4 bg-emerald-500/40" />
-          <span className="text-[10px] font-medium text-emerald-400/70 bg-background px-2">{leftLabel}</span>
-          <ArrowDown className="w-3 h-3 text-emerald-400/50" />
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="w-px h-4 bg-blue-500/40" />
-          <span className="text-[10px] font-medium text-blue-400/70 bg-background px-2">{rightLabel}</span>
-          <ArrowDown className="w-3 h-3 text-blue-400/50" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -364,71 +288,66 @@ function MergeConnector({ color = "emerald" }: { color?: "emerald" | "amber" | "
 
 // --- Scoping Detail Panel ---
 
-function ScopingDetail({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+function ScopingDetail() {
   const styles = colorStyles.emerald;
   return (
-    <div className={`rounded-lg border ${styles.border} ${styles.bg} ${styles.glow} p-5 cursor-pointer hover:brightness-110 transition-all duration-200`} onClick={onToggle}>
+    <div className={`rounded-lg border ${styles.border} ${styles.bg} ${styles.glow} p-5`}>
       <div className="flex items-start gap-3">
         <div className={`w-10 h-10 rounded-lg border ${styles.border} bg-background/50 flex items-center justify-center shrink-0`}>
-          <span className={styles.icon}>{scopingNode.icon}</span>
+          <span className={styles.icon}><Search className="w-5 h-5" /></span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className={`text-sm font-semibold ${styles.text}`}>{scopingNode.label}</h3>
+            <h3 className={`text-sm font-semibold ${styles.text}`}>Agent Scoping</h3>
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${styles.badge}`}>
               <Bot className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
               Devin
             </span>
-            <span className="text-muted-foreground/30 ml-auto">
-              {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </span>
           </div>
-          <p className="text-xs text-muted-foreground/60 leading-relaxed">{scopingNode.description}</p>
+          <p className="text-xs text-muted-foreground/60 leading-relaxed">Concurrent Devin sessions analyze the issue</p>
         </div>
       </div>
 
-      {expanded && (
-        <div className="mt-5 ml-[52px] space-y-5">
-          {/* MCP integrations */}
-          <div>
-            <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Leveraging MCP Integrations</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-                <Database className="w-3 h-3 text-emerald-400/50 shrink-0" /> Database access for data layer
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-                <Activity className="w-3 h-3 text-amber-400/50 shrink-0" /> DataDog logs for errors
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-                <Code className="w-3 h-3 text-blue-400/50 shrink-0" /> Codebase in sandbox env
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
-                <GitBranch className="w-3 h-3 text-muted-foreground/40 shrink-0" /> Architecture understanding
-              </div>
+      <div className="mt-5 ml-[52px] space-y-5">
+        {/* MCP integrations */}
+        <div>
+          <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Leveraging MCP Integrations</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
+              <Database className="w-3 h-3 text-emerald-400/50 shrink-0" /> Database access for data layer
             </div>
-          </div>
-
-          {/* Output */}
-          <div>
-            <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Scoping Output</h4>
-            <div className="space-y-1.5">
-              {[
-                "Issue or feature summary",
-                "Implementation plan with affected files",
-                "Root cause hypothesis (bugs)",
-                "Confidence level: High / Medium / Low",
-                "Priority recommendation",
-                "Open questions for engineers",
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/50">
-                  <span className="w-1 h-1 rounded-full bg-emerald-500/40 mt-1.5 shrink-0" />
-                  {item}
-                </div>
-              ))}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
+              <Activity className="w-3 h-3 text-amber-400/50 shrink-0" /> DataDog logs for errors
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
+              <Code className="w-3 h-3 text-blue-400/50 shrink-0" /> Codebase in sandbox env
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/50 bg-muted/10 rounded px-3 py-2 border border-border/30">
+              <GitBranch className="w-3 h-3 text-muted-foreground/40 shrink-0" /> Architecture understanding
             </div>
           </div>
         </div>
-      )}
+
+        {/* Output */}
+        <div>
+          <h4 className="text-[10px] font-medium text-muted-foreground/40 uppercase tracking-widest mb-2">Scoping Output</h4>
+          <div className="space-y-1.5">
+            {[
+              "Issue or feature summary",
+              "Implementation plan with affected files",
+              "Root cause hypothesis (bugs)",
+              "Confidence level: High / Medium / Low",
+              "Priority recommendation",
+              "Open questions for engineers",
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/50">
+                <span className="w-1 h-1 rounded-full bg-emerald-500/40 mt-1.5 shrink-0" />
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -436,74 +355,64 @@ function ScopingDetail({ expanded, onToggle }: { expanded: boolean; onToggle: ()
 // --- Main Diagram ---
 
 export function WorkflowDiagram() {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const n = workflowNodes;
-
-  const toggle = (id: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-0">
       <div className="mb-8">
         <h2 className="text-sm font-semibold text-foreground/90 mb-1">Resolver Workflow</h2>
-        <p className="text-xs text-muted-foreground/50">Click any step to expand details. This is the end-to-end pipeline from issue intake to resolution.</p>
+        <p className="text-xs text-muted-foreground/50">End-to-end pipeline from issue intake to resolution.</p>
       </div>
 
       {/* 1. Intake */}
-      <NodeCard node={n.intake} expanded={expandedNodes.has("intake")} onToggle={() => toggle("intake")} />
+      <NodeCard node={n.intake} />
 
       <VerticalConnector color="muted" label="Detect workflow type" />
 
       {/* 2. Workflow branch: Bug vs Feature */}
       <div className="grid grid-cols-2 gap-3">
-        <NodeCard node={n.bugTriage} expanded={expandedNodes.has("bug_triage")} onToggle={() => toggle("bug_triage")} />
-        <NodeCard node={n.featureDev} expanded={expandedNodes.has("feature_dev")} onToggle={() => toggle("feature_dev")} />
+        <NodeCard node={n.bugTriage} />
+        <NodeCard node={n.featureDev} />
       </div>
 
       <VerticalConnector color="emerald" />
 
       {/* 3. Agent Scoping (shared) */}
-      <ScopingDetail expanded={expandedNodes.has("scoping")} onToggle={() => toggle("scoping")} />
+      <ScopingDetail />
 
       <VerticalConnector color="emerald" />
 
       {/* 4. Confidence Gate */}
-      <NodeCard node={n.confidenceGate} expanded={expandedNodes.has("confidence_gate")} onToggle={() => toggle("confidence_gate")} />
+      <NodeCard node={n.confidenceGate} />
 
       <ConfidenceSplit />
 
       {/* 5. Two paths */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-0">
-          <NodeCard node={n.highPath} expanded={expandedNodes.has("high_confidence")} onToggle={() => toggle("high_confidence")} />
+          <NodeCard node={n.highPath} />
         </div>
         <div className="space-y-0">
-          <NodeCard node={n.reviewPath} expanded={expandedNodes.has("human_review")} onToggle={() => toggle("human_review")} />
+          <NodeCard node={n.reviewPath} />
           <VerticalConnector color="amber" label="Optional" />
-          <NodeCard node={n.editPlan} expanded={expandedNodes.has("edit_plan")} onToggle={() => toggle("edit_plan")} />
+          <NodeCard node={n.editPlan} />
         </div>
       </div>
 
       <MergeConnector color="emerald" />
 
       {/* 6. Implementation */}
-      <NodeCard node={n.implementation} expanded={expandedNodes.has("implementation")} onToggle={() => toggle("implementation")} />
+      <NodeCard node={n.implementation} />
 
       <VerticalConnector color="emerald" />
 
       {/* 7. PR Review */}
-      <NodeCard node={n.prReview} expanded={expandedNodes.has("pr_review")} onToggle={() => toggle("pr_review")} />
+      <NodeCard node={n.prReview} />
 
       <VerticalConnector color="emerald" />
 
       {/* 8. Resolved */}
-      <NodeCard node={n.resolved} expanded={expandedNodes.has("resolved")} onToggle={() => toggle("resolved")} />
+      <NodeCard node={n.resolved} />
 
       {/* Legend */}
       <div className="mt-10 pt-6 border-t border-border/30">

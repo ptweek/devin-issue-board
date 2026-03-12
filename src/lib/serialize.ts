@@ -1,6 +1,15 @@
 import type { Issue as PrismaIssue, ScopingReport as PrismaScopingReport, ActivityEvent as PrismaActivityEvent } from "@/generated/prisma/client";
 import { differenceInDays } from "date-fns";
 
+function tryParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    // Legacy plain-text findings — wrap in a compatible structure
+    return value;
+  }
+}
+
 export function serializeIssue(issue: PrismaIssue & { scopingReport?: PrismaScopingReport | null; activityEvents?: PrismaActivityEvent[] }) {
   const now = new Date();
   return {
@@ -14,7 +23,9 @@ export function serializeIssue(issue: PrismaIssue & { scopingReport?: PrismaScop
     repo: issue.repo,
     labels: JSON.parse(issue.labels),
     assignee: issue.assignee,
-    devinSessionId: issue.devinSessionId,
+    prUrl: issue.prUrl,
+    scopingSessionId: issue.scopingSessionId,
+    implementSessionId: issue.implementSessionId,
     createdAt: issue.createdAt.toISOString(),
     updatedAt: issue.updatedAt.toISOString(),
     staleDays: differenceInDays(now, issue.updatedAt),
@@ -36,8 +47,8 @@ export function serializeScopingReport(report: PrismaScopingReport) {
     rootCauseHypothesis: report.rootCauseHypothesis,
     suggestedApproach: report.suggestedApproach,
     estimatedEffort: report.estimatedEffort,
-    datadogFindings: report.datadogFindings,
-    dataLayerFindings: report.dataLayerFindings,
+    datadogFindings: report.datadogFindings ? tryParseJson(report.datadogFindings) : null,
+    dataLayerFindings: report.dataLayerFindings ? tryParseJson(report.dataLayerFindings) : null,
     confidence: report.confidence,
     openQuestions: JSON.parse(report.openQuestions),
     createdAt: report.createdAt.toISOString(),

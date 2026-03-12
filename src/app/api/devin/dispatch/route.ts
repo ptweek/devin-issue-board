@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         data: {
           status: "scoping",
           assignee: "devin",
-          devinSessionId: session.session_id,
+          scopingSessionId: session.session_id,
         },
       });
 

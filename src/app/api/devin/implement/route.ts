@@ -29,10 +29,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Guard against double-dispatch — if already in_progress with a session, don't create another
+  if (dbIssue.status === "in_progress" && dbIssue.implementSessionId) {
+    return NextResponse.json(
+      { error: "Issue already has an active implementation session", sessionId: dbIssue.implementSessionId },
+      { status: 409 }
+    );
+  }
+
   // Resolve playbook
   let playbookId: string;
   try {
-    playbookId = await getPlaybookId("Implement");
+    playbookId = await getPlaybookId("Implement Feature");
   } catch (err) {
     return NextResponse.json(
       { error: `Failed to resolve playbook: ${err instanceof Error ? err.message : err}` },
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
     data: {
       status: "in_progress",
       assignee: "devin",
-      devinSessionId: session.session_id,
+      implementSessionId: session.session_id,
     },
   });
 

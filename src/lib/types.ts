@@ -34,12 +34,43 @@ export interface Issue {
   repo: string;
   labels: string[];
   assignee: string | null;
-  devinSessionId?: string | null;
+  prUrl?: string | null;
+  scopingSessionId?: string | null;
+  implementSessionId?: string | null;
   createdAt: string;
   updatedAt: string;
   staleDays: number;
   scopingReport?: ScopingReport | null;
   activityEvents?: ActivityEvent[];
+}
+
+export interface DatadogFinding {
+  type: "error" | "latency" | "trace" | "monitor" | "log";
+  title: string;
+  detail: string;
+  severity?: "critical" | "warning" | "info";
+}
+
+export interface DatadogFindings {
+  investigationRationale: string;
+  searches?: string[];
+  findings: DatadogFinding[];
+  productionStatus: "ongoing" | "resolved" | "intermittent" | "unknown";
+  impactOnScoping: string;
+}
+
+export interface DataLayerFinding {
+  type: "schema" | "data" | "index" | "constraint" | "relationship";
+  title: string;
+  detail: string;
+}
+
+export interface DataLayerFindings {
+  investigationRationale: string;
+  modelsExamined?: string[];
+  findings: DataLayerFinding[];
+  schemaVsReality?: string | null;
+  impactOnScoping: string;
 }
 
 export interface ScopingReport {
@@ -50,8 +81,8 @@ export interface ScopingReport {
   rootCauseHypothesis: string;
   suggestedApproach: string;
   estimatedEffort: string;
-  datadogFindings: string | null;
-  dataLayerFindings: string | null;
+  datadogFindings: DatadogFindings | string | null;
+  dataLayerFindings: DataLayerFindings | string | null;
   confidence: Confidence;
   openQuestions: string[];
   createdAt: string;
