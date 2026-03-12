@@ -186,24 +186,50 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
             <PipelineVisualization issue={issue} />
 
             {/* Actions */}
-            <div className="px-8 py-3 border-b border-border/50 flex items-center gap-2 flex-wrap">
-              <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
-                <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Scope with Agent"}
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
-                <Bot className="w-3 h-3" /> Assign Agent for Fix
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5 text-muted-foreground"
-                onClick={async () => {
-                  await handleStatusChange("wont_fix");
-                }}
-              >
-                <XCircle className="w-3 h-3" /> Won&apos;t Fix
-              </Button>
-            </div>
+            {(() => {
+              const agentBusy = ["scoping", "in_progress"].includes(issue.status) && issue.assignee === "devin";
+              const devinUrl = issue.activityEvents
+                ?.slice().reverse()
+                .map(e => (e.metadata as Record<string, unknown>)?.devinUrl as string | undefined)
+                .find(Boolean) || null;
+              return (
+                <div className="px-8 py-3 border-b border-border/50 flex items-center gap-2 flex-wrap">
+                  {agentBusy ? (
+                    <>
+                      <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500/20 text-emerald-400/60 border-0 cursor-not-allowed" disabled>
+                        <Bot className="w-3 h-3" /> Agent Working...
+                      </Button>
+                      {devinUrl && (
+                        <a href={devinUrl} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-emerald-400/80 border-emerald-500/20 hover:bg-emerald-500/10">
+                            <ExternalLink className="w-3 h-3" /> View Devin Session
+                          </Button>
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" className="h-7 text-xs gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0" onClick={() => handleSendToAgent("scope")} disabled={agentLoading}>
+                        <Bot className="w-3 h-3" /> {agentLoading ? "Dispatching..." : "Scope with Agent"}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => handleSendToAgent("fix")} disabled={agentLoading}>
+                        <Bot className="w-3 h-3" /> Assign Agent for Fix
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1.5 text-muted-foreground"
+                    onClick={async () => {
+                      await handleStatusChange("wont_fix");
+                    }}
+                  >
+                    <XCircle className="w-3 h-3" /> Won&apos;t Fix
+                  </Button>
+                </div>
+              );
+            })()}
 
             {/* Tabs */}
             <div className="border-b border-border/50 flex px-8">
