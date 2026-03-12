@@ -58,6 +58,8 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { PipelineVisualization } from "@/components/pipeline-visualization";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface PRSummary {
   title: string;
@@ -589,8 +591,32 @@ export function IssueDetail({ issueId, onClose, onRefresh }: IssueDetailProps) {
             {/* Tab content */}
             <div className="p-8">
               {activeTab === "description" && (
-                <div className="prose prose-invert prose-sm max-w-none text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {issue.description}
+                <div className="max-w-none text-sm text-muted-foreground leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h1: ({ children }) => <h1 className="text-base font-semibold text-foreground mt-6 mb-3 first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest mt-8 mb-3 first:mt-0 pb-2 border-b border-border/30">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-medium text-foreground/80 mt-5 mb-2">{children}</h3>,
+                      p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                      ul: ({ children }) => <ul className="mb-4 space-y-1.5 list-none">{children}</ul>,
+                      ol: ({ children }) => <ol className="mb-4 space-y-1.5 list-decimal list-inside">{children}</ol>,
+                      li: ({ children }) => <li className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2"><span className="text-muted-foreground/30 mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/30" /><span>{children}</span></li>,
+                      strong: ({ children }) => <strong className="font-medium text-foreground/90">{children}</strong>,
+                      code: ({ children, className }) => {
+                        const isBlock = className?.includes("language-");
+                        if (isBlock) {
+                          return <code className={`text-xs ${className}`}>{children}</code>;
+                        }
+                        return <code className="text-xs font-mono bg-muted/30 text-foreground/70 px-1.5 py-0.5 rounded border border-border/30">{children}</code>;
+                      },
+                      pre: ({ children }) => <pre className="text-xs font-mono bg-muted/20 rounded-md p-4 mb-4 overflow-x-auto border border-border/30 leading-relaxed">{children}</pre>,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400/80 hover:text-emerald-400 underline underline-offset-2 transition-colors">{children}</a>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-muted-foreground/20 pl-4 my-3 text-muted-foreground/60 italic">{children}</blockquote>,
+                    }}
+                  >
+                    {issue.description}
+                  </ReactMarkdown>
                 </div>
               )}
 

@@ -25,7 +25,8 @@
       "Bash(curl -s -H \"Authorization: Bearer apk_user_ZW1haWx8Njk5NGRlNGU0MjI1MDlhZjFiNGViYmViX29yZy03ZWIyYTRmNGY0NzI0NDRjOWU3MjA5YTIxNTc5ZDI1NTplNjgxNzkwNzBlZTI0NDFiYTM4NzliOGQ0MGNkZTZkYg==\" \"https://api.devin.ai/v1/sessions/c0371c91d697419088d1a49d46b6a17e\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f''''status: {d[\"\"status\"\"]}\\\\nprUrl: {d[\"\"prUrl\"\"]}''''\\)\")",
       "Bash(curl -s \"http://localhost:3000/api/github/pr?url=https://github.com/ptweek/shopflow/pull/6\")",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/issues)"
     ]
   }
 }
